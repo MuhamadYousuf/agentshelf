@@ -1,0 +1,28 @@
+# deps / build
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# private planning / AI handoffs
+.ai/
+
+# local artifacts
+spikes/.out/
+video/out/
+video/node_modules/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
