@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+  msw: false
+  sharp: false
+  unrs-resolver: false
+storeDir: C:\Users\muham\AppData\Local\pnpm\store\v11

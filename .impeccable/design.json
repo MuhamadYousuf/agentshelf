@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T15:39:15Z",
+  "title": "Design System: AgentShelf",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Deep Shelf Indigo",
+        "canonical": "#3B2ED0",
+        "tonalRamp": [
+          "oklch(15% 0.233 275)",
+          "oklch(26% 0.233 275)",
+          "oklch(37% 0.233 275)",
+          "oklch(48% 0.233 275)",
+          "oklch(59% 0.233 275)",
+          "oklch(70% 0.233 275)",
+          "oklch(82% 0.233 275)",
+          "oklch(95% 0.233 275)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#FAF8F5",
+        "tonalRamp": [
+          "oklch(15% 0.005 78)",
+          "oklch(26% 0.005 78)",
+          "oklch(37% 0.005 78)",
+          "oklch(48% 0.005 78)",
+          "oklch(59% 0.005 78)",
+          "oklch(70% 0.005 78)",
+          "oklch(82% 0.005 78)",
+          "oklch(95% 0.005 78)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Workshop Ink",
+        "canonical": "#14141F",
+        "tonalRamp": [
+          "oklch(15% 0.022 284)",
+          "oklch(26% 0.022 284)",
+          "oklch(37% 0.022 284)",
+          "oklch(48% 0.022 284)",
+          "oklch(59% 0.022 284)",
+          "oklch(70% 0.022 284)",
+          "oklch(82% 0.022 284)",
+          "oklch(95% 0.022 284)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Soft Porcelain",
+        "canonical": "#FFFDFA",
+        "tonalRamp": [
+          "oklch(15% 0.005 78)",
+          "oklch(26% 0.005 78)",
+          "oklch(37% 0.005 78)",
+          "oklch(48% 0.005 78)",
+          "oklch(59% 0.005 78)",
+          "oklch(70% 0.005 78)",
+          "oklch(82% 0.005 78)",
+          "oklch(95% 0.005 78)"
+        ]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "Action White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(26% 0 90)",
+          "oklch(37% 0 90)",
+          "oklch(48% 0 90)",
+          "oklch(59% 0 90)",
+          "oklch(70% 0 90)",
+          "oklch(82% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Workshop Mist",
+        "canonical": "#F1EEE9",
+        "tonalRamp": [
+          "oklch(15% 0.007 81)",
+          "oklch(26% 0.007 81)",
+          "oklch(37% 0.007 81)",
+          "oklch(48% 0.007 81)",
+          "oklch(59% 0.007 81)",
+          "oklch(70% 0.007 81)",
+          "oklch(82% 0.007 81)",
+          "oklch(95% 0.007 81)"
+        ]
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Muted Type",
+        "canonical": "#5B5964",
+        "tonalRamp": [
+          "oklch(15% 0.018 294)",
+          "oklch(26% 0.018 294)",
+          "oklch(37% 0.018 294)",
+          "oklch(48% 0.018 294)",
+          "oklch(59% 0.018 294)",
+          "oklch(70% 0.018 294)",
+          "oklch(82% 0.018 294)",
+          "oklch(95% 0.018 294)"
+        ]
+      },
+      "secondary-foreground": {
+        "role": "neutral",
+        "displayName": "Quiet Charcoal",
+        "canonical": "#242331",
+        "tonalRamp": [
+          "oklch(15% 0.026 288)",
+          "oklch(26% 0.026 288)",
+          "oklch(37% 0.026 288)",
+          "oklch(48% 0.026 288)",
+          "oklch(59% 0.026 288)",
+          "oklch(70% 0.026 288)",
+          "oklch(82% 0.026 288)",
+          "oklch(95% 0.026 288)"
+        ]
+      },
+      "agent-amber": {
+        "role": "secondary",
+        "displayName": "Maker Amber",
+        "canonical": "#F5A524",
+        "tonalRamp": [
+          "oklch(15% 0.158 72)",
+          "oklch(26% 0.158 72)",
+          "oklch(37% 0.158 72)",
+          "oklch(48% 0.158 72)",
+          "oklch(59% 0.158 72)",
+          "oklch(70% 0.158 72)",
+          "oklch(82% 0.158 72)",
+          "oklch(95% 0.158 72)"
+        ]
+      },
+      "agent-soft": {
+        "role": "neutral",
+        "displayName": "Agent Cream",
+        "canonical": "#FFF2D7",
+        "tonalRamp": [
+          "oklch(15% 0.038 85)",
+          "oklch(26% 0.038 85)",
+          "oklch(37% 0.038 85)",
+          "oklch(48% 0.038 85)",
+          "oklch(59% 0.038 85)",
+          "oklch(70% 0.038 85)",
+          "oklch(82% 0.038 85)",
+          "oklch(95% 0.038 85)"
+        ]
+      },
+      "agent-ink": {
+        "role": "neutral",
+        "displayName": "Agent Umber",
+        "canonical": "#674604",
+        "tonalRamp": [
+          "oklch(15% 0.086 77)",
+          "oklch(26% 0.086 77)",
+          "oklch(37% 0.086 77)",
+          "oklch(48% 0.086 77)",
+          "oklch(59% 0.086 77)",
+          "oklch(70% 0.086 77)",
+          "oklch(82% 0.086 77)",
+          "oklch(95% 0.086 77)"
+        ]
+      },
+      "success": {
+        "role": "tertiary",
+        "displayName": "Kiln Green",
+        "canonical": "#12A150",
+        "tonalRamp": [
+          "oklch(15% 0.163 151)",
+          "oklch(26% 0.163 151)",
+          "oklch(37% 0.163 151)",
+          "oklch(48% 0.163 151)",
+          "oklch(59% 0.163 151)",
+          "oklch(70% 0.163 151)",
+          "oklch(82% 0.163 151)",
+          "oklch(95% 0.163 151)"
+        ]
+      },
+      "destructive": {
+        "role": "tertiary",
+        "displayName": "Clear Red",
+        "canonical": "#E5484D",
+        "tonalRamp": [
+          "oklch(15% 0.193 23)",
+          "oklch(26% 0.193 23)",
+          "oklch(37% 0.193 23)",
+          "oklch(48% 0.193 23)",
+          "oklch(59% 0.193 23)",
+          "oklch(70% 0.193 23)",
+          "oklch(82% 0.193 23)",
+          "oklch(95% 0.193 23)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Fine Border",
+        "canonical": "#E6E1D9",
+        "tonalRamp": [
+          "oklch(15% 0.012 80)",
+          "oklch(26% 0.012 80)",
+          "oklch(37% 0.012 80)",
+          "oklch(48% 0.012 80)",
+          "oklch(59% 0.012 80)",
+          "oklch(70% 0.012 80)",
+          "oklch(82% 0.012 80)",
+          "oklch(95% 0.012 80)"
+        ]
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Input Stone",
+        "canonical": "#D8D2C9",
+        "tonalRamp": [
+          "oklch(15% 0.014 78)",
+          "oklch(26% 0.014 78)",
+          "oklch(37% 0.014 78)",
+          "oklch(48% 0.014 78)",
+          "oklch(59% 0.014 78)",
+          "oklch(70% 0.014 78)",
+          "oklch(82% 0.014 78)",
+          "oklch(95% 0.014 78)"
+        ]
+      },
+      "sidebar": {
+        "role": "neutral",
+        "displayName": "Sidebar Linen",
+        "canonical": "#F4F1EC",
+        "tonalRamp": [
+          "oklch(15% 0.007 81)",
+          "oklch(26% 0.007 81)",
+          "oklch(37% 0.007 81)",
+          "oklch(48% 0.007 81)",
+          "oklch(59% 0.007 81)",
+          "oklch(70% 0.007 81)",
+          "oklch(82% 0.007 81)",
+          "oklch(95% 0.007 81)"
+        ]
+      },
+      "sidebar-accent": {
+        "role": "neutral",
+        "displayName": "Sidebar Lavender",
+        "canonical": "#EAE6F8",
+        "tonalRamp": [
+          "oklch(15% 0.024 296)",
+          "oklch(26% 0.024 296)",
+          "oklch(37% 0.024 296)",
+          "oklch(48% 0.024 296)",
+          "oklch(59% 0.024 296)",
+          "oklch(70% 0.024 296)",
+          "oklch(82% 0.024 296)",
+          "oklch(95% 0.024 296)"
+        ]
+      },
+      "sidebar-accent-foreground": {
+        "role": "neutral",
+        "displayName": "Sidebar Indigo",
+        "canonical": "#251D7C",
+        "tonalRamp": [
+          "oklch(15% 0.152 277)",
+          "oklch(26% 0.152 277)",
+          "oklch(37% 0.152 277)",
+          "oklch(48% 0.152 277)",
+          "oklch(59% 0.152 277)",
+          "oklch(70% 0.152 277)",
+          "oklch(82% 0.152 277)",
+          "oklch(95% 0.152 277)"
+        ]
+      },
+      "sidebar-border": {
+        "role": "neutral",
+        "displayName": "Sidebar Border",
+        "canonical": "#E2DDD5",
+        "tonalRamp": [
+          "oklch(15% 0.012 80)",
+          "oklch(26% 0.012 80)",
+          "oklch(37% 0.012 80)",
+          "oklch(48% 0.012 80)",
+          "oklch(59% 0.012 80)",
+          "oklch(70% 0.012 80)",
+          "oklch(82% 0.012 80)",
+          "oklch(95% 0.012 80)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Instrument Serif Display",
+        "purpose": "Expressive landing hero and section headlines."
+      },
+      "display-compact": {
+        "displayName": "Compact Display",
+        "purpose": "Narrow-screen landing hero."
+      },
+      "headline": {
+        "displayName": "Editorial Page Headline",
+        "purpose": "Auth, merchant, and storefront page titles."
+      },
+      "title": {
+        "displayName": "Product Title",
+        "purpose": "Storefront product titles."
+      },
+      "body": {
+        "displayName": "Inter UI",
+        "purpose": "Body copy, forms, and merchant operations."
+      },
+      "label": {
+        "displayName": "Compact UI Label",
+        "purpose": "Metadata, category names, and navigation details."
+      },
+      "mono": {
+        "displayName": "Endpoint Mono",
+        "purpose": "Copyable MCP endpoint text."
+      }
+    },
+    "shadows": [
+      {
+        "name": "hero-preview",
+        "value": "0 24px 56px rgba(32, 27, 63, 0.10)",
+        "purpose": "Diffuse separation around the first-viewport listing preview."
+      },
+      {
+        "name": "auth-card",
+        "value": "0 18px 50px rgba(31, 28, 53, 0.06)",
+        "purpose": "Quiet lift beneath the sign-in card."
+      }
+    ],
+    "motion": [
+      {
+        "name": "standard-state",
+        "value": "160ms ease",
+        "purpose": "Link and control state transitions."
+      },
+      {
+        "name": "hero-entrance",
+        "value": "fade and translateY(16px) over 520ms with cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "One-time subtle entrance; disabled when reduced motion is requested."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "tablet",
+        "value": "980px"
+      },
+      {
+        "name": "mobile",
+        "value": "640px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact indigo action for merchant controls.",
+      "html": "<button class=\"ds-btn-primary\">Save changes</button>",
+      "css": ".ds-btn-primary { background: var(--primary); color: var(--primary-foreground); border: 0; border-radius: 10px; min-height: 36px; padding: 8px 16px; font-family: var(--font-inter), Arial, sans-serif; font-size: 14px; font-weight: 500; transition: background 160ms ease; } .ds-btn-primary:hover { background: rgb(59 46 208 / 90%); } .ds-btn-primary:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; box-shadow: 0 0 0 3px rgb(59 46 208 / 50%); }"
+    },
+    {
+      "name": "Landing Primary Button",
+      "kind": "button",
+      "refersTo": "button-hero",
+      "description": "Pill-shaped primary action for the landing page.",
+      "html": "<button class=\"ds-btn-hero\">Open my shop</button>",
+      "css": ".ds-btn-hero { background: var(--primary); color: var(--primary-foreground); border: 0; border-radius: 999px; min-height: 48px; padding: 12px 22px; font-family: var(--font-inter), Arial, sans-serif; font-size: 14px; font-weight: 600; transition: background 160ms ease; } .ds-btn-hero:hover { background: rgb(59 46 208 / 90%); } .ds-btn-hero:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; box-shadow: 0 0 0 3px rgb(59 46 208 / 50%); }"
+    },
+    {
+      "name": "Landing Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "A quiet companion action beside the main landing action.",
+      "html": "<button class=\"ds-btn-secondary\">Watch an agent shop</button>",
+      "css": ".ds-btn-secondary { background: rgba(255, 253, 250, 0.65); color: var(--ink); border: 1px solid var(--input); border-radius: 999px; min-height: 48px; padding: 12px 22px; font-family: var(--font-inter), Arial, sans-serif; font-size: 14px; font-weight: 600; transition: background 160ms ease, color 160ms ease; } .ds-btn-secondary:hover { background: var(--surface); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; box-shadow: 0 0 0 3px rgb(59 46 208 / 50%); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Warm, low-noise field with a visible keyboard focus ring.",
+      "html": "<input class=\"ds-input\" type=\"email\" aria-label=\"Email\" placeholder=\"you@yourshop.com\" />",
+      "css": ".ds-input { width: 100%; height: 36px; padding: 4px 12px; color: var(--ink); border: 1px solid var(--input); border-radius: 10px; background: transparent; font-family: var(--font-inter), Arial, sans-serif; font-size: 14px; transition: color 160ms ease, box-shadow 160ms ease; } .ds-input::placeholder { color: var(--muted-foreground); } .ds-input:focus-visible { outline: 0; border-color: var(--ring); box-shadow: 0 0 0 3px rgb(59 46 208 / 50%); } .ds-input[aria-invalid='true'] { border-color: var(--destructive); box-shadow: 0 0 0 3px rgb(229 72 77 / 20%); }"
+    },
+    {
+      "name": "Porcelain Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A bordered neutral surface for product and operational details.",
+      "html": "<article class=\"ds-card\"><strong>Hand-glazed speckled mug</strong><p>Stoneware · Drinkware · 12 oz</p><span>$32.00</span></article>",
+      "css": ".ds-card { overflow: hidden; padding: 24px; color: var(--ink); border: 1px solid var(--border); border-radius: 16px; background: var(--surface); } .ds-card strong { font-family: var(--font-instrument-serif), Georgia, serif; font-size: 25px; font-weight: 400; line-height: 1.08; } .ds-card p { margin: 9px 0 16px; color: var(--muted-foreground); font: 12px/1.55 var(--font-inter), Arial, sans-serif; } .ds-card:focus-within { border-color: var(--ring); box-shadow: 0 0 0 3px rgb(59 46 208 / 18%); }"
+    },
+    {
+      "name": "Landing Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-link",
+      "description": "A quiet desktop link row that yields space to the brand and primary action on mobile.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main navigation\"><a href=\"#how-it-works\">How it works</a><a href=\"#for-makers\">For makers</a><a href=\"#for-agents\">For AI agents</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 32px; color: #4d4a55; font: 14px/1.4 var(--font-inter), Arial, sans-serif; } .ds-nav a { color: inherit; text-decoration: none; transition: color 160ms ease; } .ds-nav a:hover { color: var(--primary); } .ds-nav a:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; } @media (max-width: 980px) { .ds-nav { display: none; } }"
+    },
+    {
+      "name": "Agent-Ready Badge",
+      "kind": "chip",
+      "refersTo": "agent-badge",
+      "description": "A compact amber cue for an agent-published or agent-ready state.",
+      "html": "<span class=\"ds-agent-badge\">Agent-ready</span>",
+      "css": ".ds-agent-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px; color: var(--agent-ink); border: 1px solid #e5c67f; border-radius: 999px; background: var(--agent-soft); font: 600 12px/1.3 var(--font-inter), Arial, sans-serif; }"
+    },
+    {
+      "name": "Listing Preview",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "A first-viewport illustration showing item details, price floor, and agent rules.",
+      "html": "<article class=\"ds-listing\"><div class=\"ds-listing-art\" aria-hidden=\"true\">01</div><div><span class=\"ds-listing-status\">Agent-ready</span><h3>Hand-glazed speckled mug</h3><p>Stoneware · Drinkware · 12 oz</p><strong>$32.00</strong><small>Maker-set floor · $27.00</small></div></article>",
+      "css": ".ds-listing { display: grid; grid-template-columns: minmax(120px, 0.88fr) minmax(180px, 1.12fr); gap: 20px; padding: 20px; color: var(--ink); border: 1px solid var(--border); border-radius: 20px; background: var(--surface); box-shadow: 0 24px 56px rgba(32, 27, 63, 0.10); } .ds-listing-art { display: grid; min-height: 190px; place-items: center; border-radius: 13px; background: linear-gradient(145deg, #efe5d9, #f7f0e7 52%, #e4d6c6); color: #4c3f37; font: italic 24px var(--font-instrument-serif), Georgia, serif; } .ds-listing-status { display: inline-block; padding: 5px 8px; border-radius: 999px; background: #fff2d7; color: #674604; font: 600 11px/1.3 var(--font-inter), Arial, sans-serif; } .ds-listing h3 { margin: 12px 0 4px; font: 400 25px/1.08 var(--font-instrument-serif), Georgia, serif; } .ds-listing p { margin: 0 0 12px; color: var(--muted-foreground); font: 12px/1.5 var(--font-inter), Arial, sans-serif; } .ds-listing strong { font: 650 18px/1.4 var(--font-inter), Arial, sans-serif; } .ds-listing small { display: block; margin-top: 4px; color: var(--muted-foreground); font: 11px/1.4 var(--font-inter), Arial, sans-serif; } @media (max-width: 640px) { .ds-listing { grid-template-columns: 1fr; } .ds-listing-art { min-height: 140px; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Maker's Open Shelf",
+    "overview": "AgentShelf should feel like a small workshop opened to new customers: welcoming, careful with craft, and fluent in commerce without looking like a payment processor. Warm paper and dark ink create a quiet base. Deep indigo gives actions a decisive voice, while amber appears sparingly where an agent-specific cue helps people scan.\n\nAn editorial serif gives the most important sentences a distinctive voice; Inter keeps shop operations, product details, and agent terms clear. Borders and tonal shifts separate most surfaces, with soft shadows reserved for the hero preview and sign-in card. Product examples stay visibly illustrative rather than posing as customer proof.",
+    "keyCharacteristics": [
+      "Warm paper with strong ink contrast.",
+      "Instrument Serif for display and Inter for product and merchant UI.",
+      "Indigo for primary actions; amber for agent cues.",
+      "Product-forward layouts with measured spacing."
+    ],
+    "rules": [
+      {
+        "name": "The Indigo Action Rule",
+        "body": "Put the primary action in deep indigo; reserve amber for agent-specific cues and highlights.",
+        "section": "colors"
+      },
+      {
+        "name": "The Serif Signal Rule",
+        "body": "Keep Instrument Serif on display lines and product names; use Inter for controls, supporting copy, and navigation.",
+        "section": "typography"
+      },
+      {
+        "name": "The Quiet Depth Rule",
+        "body": "Default to borders and warm surface shifts; reserve shadows for the two prominent surfaces that need separation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the theme light and the background warm.",
+      "Do pair Instrument Serif display text with Inter UI text.",
+      "Do use indigo for primary actions and amber for agent cues.",
+      "Do show price and maker-set floor together where both are relevant.",
+      "Do identify the hero product panel as an illustrative preview."
+    ],
+    "donts": [
+      "Don't use PayPal's logo or brand colors.",
+      "Don't present synthetic demo shops, products, or metrics as real customer proof.",
+      "Don't introduce a dark theme unless a later brief changes the light-only requirement."
+    ]
+  }
+}
