@@ -1,4 +1,4 @@
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Sparkles } from "lucide-react";
 
 export function HeroPreview() {
   return (
@@ -28,7 +28,7 @@ export function HeroPreview() {
 
             <div className="demo-price-row">
               <span className="demo-price">$32.00</span>
-              <span className="demo-floor">Maker-set floor<br />$27.00</span>
+              <span className="demo-protection"><ShieldCheck aria-hidden="true" />Protected by PayPal</span>
             </div>
 
             <div className="demo-divider" />

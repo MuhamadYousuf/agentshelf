@@ -13,6 +13,10 @@ const environmentSchema = z.object({
   PAYPAL_WEBHOOK_ID: z.string().min(1).optional(),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
   GROQ_API_KEY: z.string().min(1).optional(),
+  GEMINI_MODEL: z.string().min(1).default("gemini-3.5-flash"),
+  GROQ_MODEL: z.string().min(1).default("openai/gpt-oss-120b"),
+  PAYPAL_MERCHANT1_EMAIL: z.email().optional(),
+  PAYPAL_MERCHANT2_EMAIL: z.email().optional(),
   DEMO_MODE: z
     .enum(["true", "false"])
     .default("false")
@@ -71,6 +75,16 @@ export function getLlmConfiguration() {
   return {
     googleApiKey: env.GOOGLE_GENERATIVE_AI_API_KEY,
     groqApiKey: env.GROQ_API_KEY,
+    geminiModel: env.GEMINI_MODEL,
+    groqModel: env.GROQ_MODEL,
+  };
+}
+
+export function getDemoPaypalEmails() {
+  const env = getServerEnvironment();
+  return {
+    merchant1: env.PAYPAL_MERCHANT1_EMAIL ?? "sb-merchant@example.com",
+    merchant2: env.PAYPAL_MERCHANT2_EMAIL ?? "sb-merchant@example.com",
   };
 }
 

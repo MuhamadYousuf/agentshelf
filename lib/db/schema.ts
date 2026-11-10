@@ -26,9 +26,19 @@ export type ProductImageMetadata = {
 export type ProductAttributes = Record<string, string | number | boolean>;
 
 export type ModerationData = {
-  status?: "pending" | "approved" | "blocked";
-  notes?: string[];
-  [key: string]: unknown;
+  status: "allowed" | "review" | "blocked";
+  reasons: string[];
+  source: ("model" | "rules")[];
+  checkedAt: string;
+  modelVerdict?: "allowed" | "review" | "blocked";
+  modelReasons?: string[];
+};
+
+export type AiSuggestions = {
+  listPriceCents: number;
+  floorPriceCents: number;
+  confidence: number;
+  manualFallback?: boolean;
 };
 
 export type PassMandate = {
@@ -134,6 +144,7 @@ export const products = pgTable(
       .$type<ProductAttributes>()
       .notNull()
       .default({}),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     images: jsonb("images")
       .$type<ProductImageMetadata[]>()
       .notNull()
@@ -145,10 +156,11 @@ export const products = pgTable(
     stock: integer("stock").notNull().default(0),
     reserved: integer("reserved").notNull().default(0),
     paypalProductId: text("paypal_product_id"),
+    aiSuggestions: jsonb("ai_suggestions").$type<AiSuggestions>(),
     moderation: jsonb("moderation")
       .$type<ModerationData>()
       .notNull()
-      .default({}),
+      .default({ status: "review", reasons: [], source: [], checkedAt: "" }),
     status: productStatus("status").notNull().default("draft"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -156,10 +168,6 @@ export const products = pgTable(
   (table) => [
     index("products_merchant_id_idx").on(table.merchantId),
     index("products_status_idx").on(table.status),
-    uniqueIndex("products_merchant_title_unique").on(
-      table.merchantId,
-      table.title,
-    ),
   ],
 );
 

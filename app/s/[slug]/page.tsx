@@ -1,12 +1,12 @@
 import { and, asc, eq } from "drizzle-orm";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { Logo } from "@/components/brand/logo";
 import { CopyEndpoint } from "@/components/storefront/copy-endpoint";
+import { ProductImage } from "@/components/storefront/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAppUrl } from "@/lib/env";
@@ -105,25 +105,7 @@ async function StorefrontContent({ params }: StorePageProps) {
 
               return (
                 <article className="product-card" key={product.id}>
-                  <div
-                    aria-label={image ? `Image of ${product.title}` : `Image placeholder for ${product.title}`}
-                    className="product-art"
-                    data-category={product.category.toLowerCase()}
-                    role="img"
-                  >
-                    {image ? (
-                      <Image
-                        alt=""
-                        className="product-image"
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 980px) 50vw, 33vw"
-                        src={`/api/images/${image.id}`}
-                        unoptimized
-                      />
-                    ) : (
-                      <span className="product-art-mark">AS</span>
-                    )}
-                  </div>
+                  <ProductImage category={product.category} imageId={image?.id} title={product.title} />
                   <div className="product-card-body">
                     <span className="product-card-category">{product.category}</span>
                     <h3 className="product-card-title">{product.title}</h3>
