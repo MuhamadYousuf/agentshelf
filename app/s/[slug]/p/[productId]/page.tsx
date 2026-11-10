@@ -83,6 +83,7 @@ async function StoreProductContent({ params, searchParams }: ProductPageProps) {
           <span className="product-card-category">{formatCategory(row.category)}</span>
           <h1 className="shop-product-title">{row.title}</h1>
           <p className="shop-product-price">{price(row.listPriceCents)}</p>
+          <p className="shop-shipping-note">Price includes shipping.</p>
           <p className="shop-product-description">{row.description}</p>
           {query.checkout === "cancelled" && <p className="shop-checkout-message" role="status">Checkout cancelled. Your reserved stock has been released.</p>}
           {query.checkout === "unavailable" && <p className="shop-checkout-message unavailable" role="status">This checkout could not be started. Check the available quantity and try again.</p>}

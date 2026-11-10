@@ -59,7 +59,7 @@ export function priceWithMerchantPolicy(input: {
       action: decision.nextState.round >= 6 ? "final" : "offer",
       priceCents: decision.trace.chosen,
       nextState: { ...decision.nextState, lastOfferCents: decision.trace.chosen },
-      trace: { ...decision.trace, reason: "auto_accept_disabled" },
+      trace: { ...decision.trace, reason: "auto_accept_disabled→buyer_accept→cooperate (Alg.3)" },
     };
   }
   return decision;

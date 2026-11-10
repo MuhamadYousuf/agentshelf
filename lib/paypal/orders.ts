@@ -22,6 +22,10 @@ export type CreatePayPalOrderInput = {
   customId: string;
 };
 
+export type CreateVaultPayPalOrderInput = Omit<CreatePayPalOrderInput, "payeeEmail"> & {
+  vaultId: string;
+};
+
 export type PayPalOrderResponse = {
   id: string;
   status?: string;
@@ -103,6 +107,55 @@ export async function createOrder(input: CreatePayPalOrderInput): Promise<{ id: 
   const approval = order.links?.find((link) => link.rel === "payer-action" || link.rel === "approve");
   if (!approval?.href) throw new Error("PayPal did not return an approval link.");
   return { id: order.id, approveUrl: approval.href };
+}
+
+/** Flow B orders omit purchase-unit payee so the platform is the PayPal recipient. */
+export async function createVaultOrder(input: CreateVaultPayPalOrderInput): Promise<{
+  id: string;
+  status: string;
+  approveUrl?: string;
+  capture?: ParsedPayPalCapture;
+}> {
+  const itemsTotalCents = input.items.reduce((total, item) => total + item.quantity * item.unitAmountCents, 0);
+  if (itemsTotalCents !== input.totalCents) throw new Error("PayPal item total must equal the order total.");
+  if (input.items.length === 0 || input.items.some((item) => item.quantity < 1 || item.unitAmountCents < 1)) {
+    throw new Error("PayPal orders need at least one priced item.");
+  }
+  if (!input.vaultId) throw new Error("A vaulted PayPal payment method is required.");
+
+  const order = await paypalFetch<PayPalOrderResponse>("/v2/checkout/orders", {
+    method: "POST",
+    requestId: input.requestId,
+    body: {
+      intent: "CAPTURE",
+      purchase_units: [{
+        reference_id: input.referenceId,
+        custom_id: input.customId,
+        description: input.description.slice(0, 127),
+        items: input.items.map((item) => ({
+          name: item.name.slice(0, 127),
+          ...(item.description ? { description: item.description.slice(0, 127) } : {}),
+          quantity: String(item.quantity),
+          unit_amount: { currency_code: "USD", value: centsToPayPal(item.unitAmountCents) },
+          category: "PHYSICAL_GOODS",
+        })),
+        amount: {
+          currency_code: "USD",
+          value: centsToPayPal(input.totalCents),
+          breakdown: { item_total: { currency_code: "USD", value: centsToPayPal(itemsTotalCents) } },
+        },
+      }],
+      payment_source: { paypal: { vault_id: input.vaultId } },
+    },
+  });
+  if (!order.id) throw new Error("PayPal did not return an order ID.");
+  const approveUrl = order.links?.find((link) => link.rel === "payer-action" || link.rel === "approve")?.href;
+  return {
+    id: order.id,
+    status: order.status ?? "CREATED",
+    ...(approveUrl ? { approveUrl } : {}),
+    ...(order.status === "COMPLETED" ? { capture: parsePayPalCapture(order) } : {}),
+  };
 }
 
 export async function getOrder(id: string): Promise<PayPalOrderResponse> {

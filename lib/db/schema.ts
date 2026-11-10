@@ -225,12 +225,16 @@ export const buyerPasses = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     label: text("label").notNull(),
+    setupTokenId: text("setup_token_id"),
     vaultId: text("vault_id"),
     paypalCustomerId: text("paypal_customer_id"),
     payerEmail: text("payer_email"),
-    tokenHash: text("token_hash").notNull(),
+    tokenHash: text("token_hash"),
+    ownerKeyHash: text("owner_key_hash").notNull(),
     mandate: jsonb("mandate").$type<PassMandate>().notNull(),
     spentCents: integer("spent_cents").notNull().default(0),
+    pendingCents: integer("pending_cents").notNull().default(0),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     status: buyerPassStatus("status").notNull().default("pending_vault"),
     createdAt: createdAt(),
@@ -238,6 +242,7 @@ export const buyerPasses = pgTable(
   },
   (table) => [
     uniqueIndex("buyer_passes_token_hash_unique").on(table.tokenHash),
+    uniqueIndex("buyer_passes_setup_token_id_unique").on(table.setupTokenId),
   ],
 );
 
@@ -265,6 +270,8 @@ export const negotiations = pgTable(
     round: integer("round").notNull().default(0),
     lastOfferCents: integer("last_offer_cents"),
     lastBuyerOfferCents: integer("last_buyer_offer_cents"),
+    breachStreak: integer("breach_streak").notNull().default(0),
+    churnStreak: integer("churn_streak").notNull().default(0),
     trace: jsonb("trace").$type<PricingTraceEntry[]>().notNull().default([]),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

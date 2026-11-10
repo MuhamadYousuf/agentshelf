@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { McpServer } from "@modelcontextprotocol/server";
 import { parseToolInput, registerMcpTools, requestOfferInputSchema, serializeToolOutput } from "./tools";
+
+vi.mock("@/lib/security/ratelimit", () => ({
+  consumeFixedWindowLimit: async () => ({ allowed: true, resetsAt: new Date("2030-01-01T00:00:00.000Z") }),
+}));
 
 const negotiationId = "2af08cc4-345f-4dc2-a56c-e3e2ad1e01cf";
 const quoteId = "cd141823-8eac-4780-bd51-73b913476574";
@@ -85,7 +89,8 @@ const fixtures = {
     },
     quote_id: quoteId,
     quote_expires_at: "2026-11-10T12:15:00.000Z",
-    message: "My current offer is $31.00.",
+    price_includes_shipping: true,
+    message: "My current offer is $31.00. Price includes shipping.",
   },
   negotiate: {
     ...privateAmounts,
@@ -100,7 +105,8 @@ const fixtures = {
     },
     quote_id: quoteId,
     quote_expires_at: "2026-11-10T12:15:00.000Z",
-    message: "My current offer is $31.00.",
+    price_includes_shipping: true,
+    message: "My current offer is $31.00. Price includes shipping.",
     round: 2,
     rounds_left: 4,
   },
@@ -111,7 +117,7 @@ const fixtures = {
     approve_url: "https://www.sandbox.paypal.com/checkoutnow?token=ORDER",
     total_cents: 3100,
     total: "$31.00",
-    note: "Send this PayPal link to your human to approve. Payment goes directly to the shop.",
+    note: "Send this PayPal link to your human to approve. Payment goes directly to the shop. Price includes shipping.",
   },
   order_status: {
     ...privateAmounts,
@@ -128,7 +134,19 @@ const fixtures = {
     total: "$31.00",
     shop: "Maya Clay",
     paid_to_shop: false,
+    paid_with: "PayPal",
     tracking: { tracking_number: "not-present" },
+  },
+  pass_status: {
+    status: "active",
+    label: "Weekend shopping",
+    per_order_max_cents: 5_000,
+    total_budget_cents: 20_000,
+    spent_cents: 1_000,
+    pending_cents: 0,
+    remaining_cents: 19_000,
+    expires_at: "2026-11-18T12:00:00.000Z",
+    categories: ["Ceramics", "Textiles"],
   },
 } as const;
 
@@ -168,6 +186,25 @@ describe("MCP tool validation and public output", () => {
     }
   });
 
+  it("returns the exact invalid-pass error and machine code without needing the database", async () => {
+    const server = new McpServer({ name: "agentshelf-test", version: "0.0.1" }, { capabilities: { tools: {} } });
+    const client = new Client({ name: "invalid-pass-test", version: "0.0.1" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    registerMcpTools(server, { ip: "local", agentClient: "invalid-pass-test", passAuth: "invalid" });
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+
+    try {
+      const result = await client.callTool({ name: "pass_status", arguments: {} });
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        code: "INVALID",
+        error: "This Agent Pass is not valid. Ask your human for a new one.",
+      });
+    } finally {
+      await Promise.all([client.close(), server.close()]);
+    }
+  });
+
   it.each(Object.entries(fixtures))("keeps %s output free of floor, cost and trace fields", (name, fixture) => {
     const output = serializeToolOutput(name as keyof typeof fixtures, fixture);
     const serialized = JSON.stringify(output);
@@ -180,5 +217,11 @@ describe("MCP tool validation and public output", () => {
     expect(serialized).not.toContain("1760");
     expect(serialized).not.toContain("$27.00");
     expect(serialized).not.toContain("$17.60");
+  });
+
+  it("strips a pass credential from validated tool output", () => {
+    const credential = "asp_" + "A".repeat(43);
+    const output = serializeToolOutput("pass_status", { ...fixtures.pass_status, token: credential });
+    expect(JSON.stringify(output)).not.toContain("asp_");
   });
 });

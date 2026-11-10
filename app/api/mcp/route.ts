@@ -12,7 +12,7 @@ import { createAgentShelfMcpServer } from "@/lib/mcp/server";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Accept, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID",
+  "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID",
   "Access-Control-Expose-Headers": "Mcp-Session-Id, Mcp-Protocol-Version",
   "Access-Control-Max-Age": "86400",
 };

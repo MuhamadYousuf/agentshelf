@@ -30,6 +30,6 @@ describe("merchant pricing policy", () => {
     };
     const decision = priceWithMerchantPolicy(input);
     expect(decision.action).toBe("offer");
-    expect(decision.trace.reason).toBe("auto_accept_disabled");
+    expect(decision.trace.reason).toBe("auto_accept_disabled→buyer_accept→cooperate (Alg.3)");
   });
 });

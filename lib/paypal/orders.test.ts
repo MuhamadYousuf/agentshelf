@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { captureOrder, createOrder, parsePayPalCapture } from "./orders";
+import { captureOrder, createOrder, createVaultOrder, parsePayPalCapture } from "./orders";
 import { resetPaypalTokenCacheForTests } from "./client";
 
 vi.mock("@/lib/env", () => ({
@@ -15,6 +15,49 @@ afterEach(() => {
 });
 
 describe("PayPal order adapter", () => {
+  it("creates a vaulted order without a purchase-unit payee and parses an auto-capture", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(jsonResponse({
+        id: "PAYPAL-VAULT-ORDER",
+        status: "COMPLETED",
+        purchase_units: [{ payments: { captures: [{
+          id: "CAPTURE-VAULT-1",
+          status: "COMPLETED",
+          amount: { value: "48.00" },
+          seller_receivable_breakdown: {
+            gross_amount: { value: "48.00" },
+            paypal_fee: { value: "1.69" },
+            net_amount: { value: "46.31" },
+          },
+        }] } }],
+      }, 201));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const created = await createVaultOrder({
+      requestId: "order-quote-vault",
+      vaultId: "VAULT-1",
+      items: [{ name: "Ceramic mug", quantity: 2, unitAmountCents: 2_400 }],
+      totalCents: 4_800,
+      description: "Ceramic mug",
+      returnUrl: "https://shop.test/return",
+      cancelUrl: "https://shop.test/cancel",
+      referenceId: "quote-vault",
+      customId: "our-order",
+    });
+
+    expect(created).toMatchObject({ id: "PAYPAL-VAULT-ORDER", status: "COMPLETED", capture: { captureId: "CAPTURE-VAULT-1", netCents: 4_631 } });
+    const request = fetchMock.mock.calls[1]?.[1];
+    expect(new Headers(request?.headers).get("PayPal-Request-Id")).toBe("order-quote-vault");
+    const body = JSON.parse(String(request?.body)) as {
+      purchase_units: Array<Record<string, unknown>>;
+      payment_source: { paypal: { vault_id: string } };
+    };
+    expect(body.payment_source.paypal.vault_id).toBe("VAULT-1");
+    expect(body.purchase_units[0]).not.toHaveProperty("payee");
+    expect(body.purchase_units[0]?.amount).toMatchObject({ value: "48.00", breakdown: { item_total: { value: "48.00" } } });
+  });
+
   it("builds the item total request and parses the approval link", async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(tokenResponse())

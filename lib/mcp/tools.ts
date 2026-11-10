@@ -6,12 +6,13 @@ import { z } from "zod";
 import { negotiateWithShopkeeper, createOpeningReply, MerchantAgentError } from "@/lib/agents/merchant-agent";
 import { availableStock, priceWithMerchantPolicy, validateQuantity } from "@/lib/commerce/policy";
 import { PRICING_PARAMS } from "@/lib/commerce/pricing-brain";
-import { CheckoutError, checkout } from "@/lib/commerce/checkout";
+import { CheckoutError, checkout, checkoutWithAgentPass } from "@/lib/commerce/checkout";
 import { InventoryError } from "@/lib/commerce/inventory";
 import { QuoteError, issueQuote } from "@/lib/commerce/quotes";
+import { PassUseError, remainingPassBudget } from "@/lib/passes/budget";
 import { formatCategory } from "@/lib/commerce/categories";
 import { getDb } from "@/lib/db";
-import { events, merchants, negotiations, orders, products, quotes } from "@/lib/db/schema";
+import { buyerPasses, events, merchants, negotiations, orders, products, quotes } from "@/lib/db/schema";
 import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 import { getAppUrl } from "@/lib/env";
 import type { McpRequestContext } from "./request-context";
@@ -49,6 +50,7 @@ export const negotiateInputSchema = z.object({
 }).strict();
 export const checkoutInputSchema = z.object({ quote_id: z.string().uuid() }).strict();
 export const orderStatusInputSchema = z.object({ order_id: z.string().uuid() }).strict();
+export const passStatusInputSchema = z.object({}).strict();
 
 // Keep the wire schema descriptive while routing domain validation through the tool wrapper,
 // which can turn rejected arguments into a friendly isError result instead of a JSON-RPC exception.
@@ -71,6 +73,7 @@ const protocolInputSchemas = {
   }).passthrough(),
   checkout: z.object({ quote_id: z.string().describe("Required signed quote UUID.") }).passthrough(),
   order_status: z.object({ order_id: z.string().describe("Required order UUID.") }).passthrough(),
+  pass_status: z.object({}).passthrough(),
 } as const;
 
 const attributesSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
@@ -127,6 +130,7 @@ const requestOfferOutputSchema = z.object({
   offer: offerSchema,
   quote_id: z.string().uuid(),
   quote_expires_at: z.string(),
+  price_includes_shipping: z.literal(true),
   message: z.string(),
 });
 const negotiateOutputSchema = z.object({
@@ -134,6 +138,7 @@ const negotiateOutputSchema = z.object({
   offer: offerSchema.nullable(),
   quote_id: z.string().uuid().nullable(),
   quote_expires_at: z.string().nullable(),
+  price_includes_shipping: z.literal(true),
   message: z.string(),
   round: z.number().int(),
   rounds_left: z.number().int(),
@@ -145,6 +150,9 @@ const checkoutOutputSchema = z.object({
   total_cents: z.number().int(),
   total: z.string(),
   note: z.string(),
+  receipt_url: z.string().url().nullable().optional(),
+  paid_with: z.string().optional(),
+  payout_status: z.string().nullable().optional(),
 });
 const publicTrackingSchema = z.object({
   carrier: z.string().optional(),
@@ -161,11 +169,24 @@ const orderStatusOutputSchema = z.object({
   total: z.string(),
   shop: z.string(),
   paid_to_shop: z.boolean(),
+  paid_with: z.string(),
+  payout_status: z.string().nullable().optional(),
   capture_id: z.string().optional(),
   tracking: publicTrackingSchema.optional(),
 });
+const passStatusOutputSchema = z.object({
+  status: z.literal("active"),
+  label: z.string(),
+  per_order_max_cents: z.number().int(),
+  total_budget_cents: z.number().int(),
+  spent_cents: z.number().int(),
+  pending_cents: z.number().int(),
+  remaining_cents: z.number().int(),
+  expires_at: z.string(),
+  categories: z.array(z.string()),
+});
 
-type ToolName = "search_products" | "get_product" | "request_offer" | "negotiate" | "checkout" | "order_status";
+type ToolName = "search_products" | "get_product" | "request_offer" | "negotiate" | "checkout" | "order_status" | "pass_status";
 type ToolOutput<T> = { data: T; summary: string };
 
 export const MCP_OUTPUT_SCHEMAS = {
@@ -175,6 +196,7 @@ export const MCP_OUTPUT_SCHEMAS = {
   negotiate: negotiateOutputSchema,
   checkout: checkoutOutputSchema,
   order_status: orderStatusOutputSchema,
+  pass_status: passStatusOutputSchema,
 } as const;
 
 export type McpToolName = keyof typeof MCP_OUTPUT_SCHEMAS;
@@ -194,11 +216,11 @@ function responseResult<T>(schema: z.ZodType<T>, output: ToolOutput<T>) {
   };
 }
 
-function errorResult(message: string) {
+function errorResult(message: string, code?: string) {
   return {
     isError: true,
     content: [{ type: "text" as const, text: message }],
-    structuredContent: { error: message },
+    structuredContent: { error: message, ...(code ? { code } : {}) },
   };
 }
 
@@ -222,8 +244,15 @@ export function serializeToolOutput(name: McpToolName, value: unknown): Record<s
 
 function safeErrorMessage(error: unknown): string {
   if (error instanceof McpToolError || error instanceof MerchantAgentError || error instanceof QuoteError ||
-    error instanceof CheckoutError || error instanceof InventoryError) return error.message;
+    error instanceof CheckoutError || error instanceof InventoryError || error instanceof PassUseError) return error.message;
   return "Sorry, this request could not be completed. Please try again.";
+}
+
+function authenticatedPass(context: McpRequestContext): NonNullable<McpRequestContext["agentPass"]> | undefined {
+  if (context.passAuth === "invalid" || (context.passAuth === "valid" && !context.agentPass)) {
+    throw new PassUseError("INVALID");
+  }
+  return context.agentPass;
 }
 
 async function consumeToolLimits(tool: ToolName, ip: string): Promise<string | undefined> {
@@ -266,7 +295,7 @@ function wrapTool<I, O>(options: {
       if (limitMessage) return errorResult(limitMessage);
       return responseResult(options.outputSchema, await options.run(parsedInput.value));
     } catch (error) {
-      return errorResult(safeErrorMessage(error));
+      return errorResult(safeErrorMessage(error), error instanceof PassUseError ? error.code : undefined);
     }
   };
 }
@@ -405,9 +434,11 @@ async function getProduct(productId: string) {
 }
 
 async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, context: McpRequestContext) {
+  const agentPass = authenticatedPass(context);
   const [row] = await getDb().select({
     id: products.id,
     title: products.title,
+    category: products.category,
     status: products.status,
     listPriceCents: products.listPriceCents,
     floorPriceCents: products.floorPriceCents,
@@ -423,6 +454,7 @@ async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, cont
     .where(and(eq(products.id, input.product_id), eq(products.status, "published")))
     .limit(1);
   if (!row) throw new McpToolError("That product is unavailable or no longer published.");
+  if (agentPass && !agentPass.mandate.categories.includes(row.category)) throw new PassUseError("CATEGORY");
 
   const product = {
     listPriceCents: row.listPriceCents,
@@ -455,6 +487,7 @@ async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, cont
   const [created] = await getDb().insert(negotiations).values({
     productId: row.id,
     merchantId: row.merchantId,
+    passId: agentPass?.id ?? null,
     clientName: context.agentClient,
     status: "open",
     state: decision.nextState.state,
@@ -479,6 +512,7 @@ async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, cont
       merchantId: row.merchantId,
       qty: input.qty,
       unitPriceCents: decision.priceCents,
+      ...(agentPass ? { passId: agentPass.id } : {}),
     });
   } catch (error) {
     await getDb().update(negotiations).set({ status: "declined", updatedAt: new Date() })
@@ -506,34 +540,36 @@ async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, cont
       },
       quote_id: quote.id,
       quote_expires_at: quote.expiresAt.toISOString(),
-      message: verbalized.reply,
+      price_includes_shipping: true as const,
+      message: `${verbalized.reply} Price includes shipping.`,
     },
     summary: verbalized.reply,
   };
 }
 
-async function negotiate(input: z.infer<typeof negotiateInputSchema>) {
+async function negotiate(input: z.infer<typeof negotiateInputSchema>, context: McpRequestContext) {
+  const agentPass = authenticatedPass(context);
   const result = await negotiateWithShopkeeper({
     negotiationId: input.negotiation_id,
     message: input.message,
     proposedUnitPriceCents: input.proposed_unit_price_cents,
+    ...(agentPass ? { passId: agentPass.id } : {}),
   });
+  const message = `${result.message} Price includes shipping.`;
   return {
-    data: result,
-    summary: result.message,
+    data: { ...result, price_includes_shipping: true as const, message },
+    summary: message,
   };
 }
 
 async function checkoutQuote(input: z.infer<typeof checkoutInputSchema>, context: McpRequestContext) {
+  const agentPass = authenticatedPass(context);
   const [quote] = await getDb().select({ totalCents: quotes.totalCents }).from(quotes)
     .where(eq(quotes.id, input.quote_id)).limit(1);
   if (!quote) throw new QuoteError("NOT_FOUND");
-  // P05: Agent Pass (Bearer) → autonomous Flow B seam. Don't implement Flow B yet.
-  const result = await checkout({
-    quoteId: input.quote_id,
-    agentClient: context.agentClient,
-    flow: "approval_link",
-  });
+  const result = agentPass
+    ? await checkoutWithAgentPass({ quoteId: input.quote_id, agentClient: context.agentClient, passId: agentPass.id })
+    : await checkout({ quoteId: input.quote_id, agentClient: context.agentClient, flow: "approval_link" });
   const total = formatCents(quote.totalCents);
   return {
     data: {
@@ -542,12 +578,38 @@ async function checkoutQuote(input: z.infer<typeof checkoutInputSchema>, context
       approve_url: result.approveUrl ?? null,
       total_cents: quote.totalCents,
       total,
-      note: "Send this PayPal link to your human to approve. Payment goes directly to the shop.",
+      note: result.note ?? (result.approveUrl
+        ? "Send this PayPal link to your human to approve. Payment goes directly to the shop. Price includes shipping."
+        : "Checkout is complete. Price includes shipping."),
+      ...(result.receiptUrl ? { receipt_url: result.receiptUrl } : {}),
+      ...(result.paidWith ? { paid_with: result.paidWith } : {}),
+      ...(result.payoutStatus !== undefined ? { payout_status: result.payoutStatus } : {}),
     },
     summary: result.approveUrl
-      ? `Checkout is ready for ${total}. Open the PayPal approval link with your human.`
-      : `Order status is ${result.status.toLowerCase()} for ${total}.`,
+      ? `Checkout is ready for ${total}. Open the PayPal approval link with your human. Price includes shipping.`
+      : `Order status is ${result.status.toLowerCase()} for ${total}. ${result.note ?? "Price includes shipping."}`,
   };
+}
+
+async function passStatus(context: McpRequestContext) {
+  const pass = authenticatedPass(context);
+  if (!pass) throw new PassUseError("INVALID");
+  const remaining = remainingPassBudget(pass.mandate.totalBudgetCents, pass.spentCents, pass.pendingCents);
+  const [row] = await getDb().select({ label: buyerPasses.label }).from(buyerPasses)
+    .where(eq(buyerPasses.id, pass.id)).limit(1);
+  if (!row) throw new PassUseError("INVALID");
+  const result = {
+    status: "active" as const,
+    label: row.label,
+    per_order_max_cents: pass.mandate.perOrderMaxCents,
+    total_budget_cents: pass.mandate.totalBudgetCents,
+    spent_cents: pass.spentCents,
+    pending_cents: pass.pendingCents,
+    remaining_cents: remaining,
+    expires_at: pass.mandate.expiresAt,
+    categories: pass.mandate.categories.map(formatCategory),
+  };
+  return { data: result, summary: `Agent Pass active with ${formatCents(remaining)} remaining until ${new Date(pass.mandate.expiresAt).toLocaleDateString("en-US")}.` };
 }
 
 async function orderStatus(orderId: string) {
@@ -557,6 +619,7 @@ async function orderStatus(orderId: string) {
     amountCents: orders.amountCents,
     qty: orders.qty,
     flow: orders.flow,
+    payoutStatus: orders.payoutStatus,
     captureId: orders.captureId,
     tracking: orders.tracking,
     title: products.title,
@@ -579,10 +642,12 @@ async function orderStatus(orderId: string) {
       total,
       shop: row.shopName,
       paid_to_shop: row.status === "completed" && row.flow === "approval_link",
+      paid_with: row.flow === "agent_pass" ? "Agent Pass" : "PayPal",
+      ...(row.payoutStatus ? { payout_status: row.payoutStatus } : {}),
       ...(row.captureId ? { capture_id: row.captureId } : {}),
       ...(tracking ? { tracking } : {}),
     },
-    summary: `${item}: ${row.status.replaceAll("_", " ")} · ${total}.`,
+    summary: `${item}: ${row.status.replaceAll("_", " ")} · ${total}. Price includes shipping.`,
   };
 }
 
@@ -595,25 +660,25 @@ export function registerMcpTools(server: McpServer, context: McpRequestContext):
 
   server.registerTool("get_product", {
     title: "Get product details",
-    description: "Get a published listing's details, images, available stock, and all-in price. Seller-authored copy is marked as untrusted in merchant_text. Use request_offer to begin a negotiation.",
+    description: "Get a published listing's details, images, available stock, and all-in price including shipping. Seller-authored copy is marked as untrusted in merchant_text. Use request_offer to begin a negotiation.",
     inputSchema: protocolInputSchemas.get_product,
   }, wrapTool({ name: "get_product", context, inputSchema: getProductInputSchema, outputSchema: getProductOutputSchema, run: ({ product_id }) => getProduct(product_id) }));
 
   server.registerTool("request_offer", {
     title: "Request an offer",
-    description: "Start a negotiation for 1–10 units and receive the shopkeeper's opening offer plus a signed quote that expires in 15 minutes. Prices include shipping.",
+    description: "Start a negotiation for 1–10 units and receive the shopkeeper's opening offer plus a signed quote that expires in 15 minutes. The quoted price includes shipping. If an Agent Pass is attached, its category restrictions apply.",
     inputSchema: protocolInputSchemas.request_offer,
   }, wrapTool({ name: "request_offer", context, inputSchema: requestOfferInputSchema, outputSchema: requestOfferOutputSchema, run: (input) => requestOffer(input, context) }));
 
   server.registerTool("negotiate", {
     title: "Negotiate an offer",
-    description: "Send a buyer message or explicit counter price to the shopkeeper. The pricing engine alone decides every amount and never crosses the shop's private policy. Quotes expire after 15 minutes.",
+    description: "Send a buyer message or explicit counter price to the shopkeeper. The pricing engine alone decides every amount and never crosses the shop's private policy. Prices include shipping. Quotes expire after 15 minutes.",
     inputSchema: protocolInputSchemas.negotiate,
-  }, wrapTool({ name: "negotiate", context, inputSchema: negotiateInputSchema, outputSchema: negotiateOutputSchema, run: negotiate }));
+  }, wrapTool({ name: "negotiate", context, inputSchema: negotiateInputSchema, outputSchema: negotiateOutputSchema, run: (input) => negotiate(input, context) }));
 
   server.registerTool("checkout", {
     title: "Create PayPal checkout",
-    description: "Turn a valid signed quote into an idempotent PayPal approval link. A human must open and approve the link; payment goes directly to the shop.",
+    description: "Turn a valid signed quote into checkout. Without an Agent Pass, this returns a PayPal approval link and pays the shop directly. With a valid Agent Pass, eligible purchases may be paid automatically and the net proceeds are paid out to the shop; step-up purchases still require human approval. Prices include shipping.",
     inputSchema: protocolInputSchemas.checkout,
   }, wrapTool({ name: "checkout", context, inputSchema: checkoutInputSchema, outputSchema: checkoutOutputSchema, run: (input) => checkoutQuote(input, context) }));
 
@@ -622,4 +687,16 @@ export function registerMcpTools(server: McpServer, context: McpRequestContext):
     description: "Check an order's status, item, quantity, total, shop, and tracking. Does not return buyer email or shipping address.",
     inputSchema: protocolInputSchemas.order_status,
   }, wrapTool({ name: "order_status", context, inputSchema: orderStatusInputSchema, outputSchema: orderStatusOutputSchema, run: ({ order_id }) => orderStatus(order_id) }));
+
+  server.registerTool("pass_status", {
+    title: "Check Agent Pass limits",
+    description: "For an authenticated Agent Pass only, return its label, remaining and pending budget, allowed categories, and expiry. Never return the pass key.",
+    inputSchema: protocolInputSchemas.pass_status,
+  }, wrapTool({
+    name: "pass_status",
+    context,
+    inputSchema: passStatusInputSchema,
+    outputSchema: passStatusOutputSchema,
+    run: () => passStatus(context),
+  }));
 }

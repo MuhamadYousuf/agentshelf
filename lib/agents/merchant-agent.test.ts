@@ -5,6 +5,7 @@ import {
   classifyBuyerMessage,
   generateShopkeeperReply,
   negotiateWithShopkeeper,
+  replyPassesOutputGuard,
   type AgentNegotiation,
   type MerchantAgentDependencies,
   type ShopkeeperReplyInput,
@@ -19,6 +20,7 @@ function negotiationFixture(): AgentNegotiation {
     id: negotiationId,
     productId,
     merchantId,
+    passId: null,
     clientName: "test-client",
     status: "open",
     state: "cooperate",
@@ -26,6 +28,8 @@ function negotiationFixture(): AgentNegotiation {
     round: 1,
     lastOfferCents: 3100,
     lastBuyerOfferCents: null,
+    breachStreak: 0,
+    churnStreak: 0,
     trace: [],
     messages: [],
     createdAt: new Date(),
@@ -65,6 +69,21 @@ function quoteFixture(unitPriceCents = 3100): QuoteRecord {
 }
 
 describe("merchant shopkeeper agent", () => {
+  it("allows numbers only when they belong to the exact title, quantity, or decided price", () => {
+    expect(replyPassesOutputGuard(
+      "The 3-piece Hand-glazed mug 2 is available as 2 units for $31.00.",
+      "$31.00",
+      "3-piece Hand-glazed mug 2",
+      "2 units",
+    )).toBe(true);
+    expect(replyPassesOutputGuard(
+      "The 3-piece Hand-glazed mug 2 is available as 2 units for $31.00. I can do $25 too.",
+      "$31.00",
+      "3-piece Hand-glazed mug 2",
+      "2 units",
+    )).toBe(false);
+  });
+
   it("uses regex classification when both mocked providers fail", async () => {
     const firstProvider = vi.fn(async () => { throw new Error("mock Gemini unavailable"); });
     const secondProvider = vi.fn(async () => { throw new Error("mock Groq unavailable"); });

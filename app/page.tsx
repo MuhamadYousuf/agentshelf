@@ -173,6 +173,11 @@ export default function HomePage() {
                     </li>
                   ))}
                 </ul>
+                <div className="agent-pass-explainer">
+                  <strong>Agent Pass, with your limits attached.</strong>
+                  <p>Vault a PayPal wallet with your approval, then set a per-order cap, total budget, category list, and expiry. Larger orders pause for your PayPal approval; revoke the pass any time.</p>
+                  <Link href="/pass">Create an Agent Pass <ArrowRight aria-hidden="true" size={15} /></Link>
+                </div>
               </article>
             </div>
           </div>

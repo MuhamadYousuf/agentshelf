@@ -1,9 +1,11 @@
 import { desc, eq } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireMerchant } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { merchants, orders, products } from "@/lib/db/schema";
+import { retryMerchantPayout } from "./actions";
 
 function formatPrice(cents: number | null): string {
   if (cents === null) return "—";
@@ -11,7 +13,7 @@ function formatPrice(cents: number | null): string {
 }
 
 function statusLabel(status: string): string {
-  return status.replaceAll("_", " ");
+  return status.toLowerCase().replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 export default async function MerchantOrdersPage() {
@@ -27,6 +29,7 @@ export default async function MerchantOrdersPage() {
     agentClient: orders.agentClient,
     status: orders.status,
     buyerEmail: orders.buyerEmail,
+    payoutStatus: orders.payoutStatus,
   }).from(orders).innerJoin(products, eq(orders.productId, products.id))
     .innerJoin(merchants, eq(orders.merchantId, merchants.id))
     .where(eq(orders.merchantId, merchant.id))
@@ -52,7 +55,7 @@ export default async function MerchantOrdersPage() {
         <Table className="merchant-orders-table">
           <TableHeader><TableRow>
             <TableHead>Date</TableHead><TableHead>Item</TableHead><TableHead>Qty</TableHead><TableHead>Total</TableHead>
-            <TableHead>Net</TableHead><TableHead>Flow</TableHead><TableHead>Agent client</TableHead><TableHead>Status</TableHead><TableHead>Buyer email</TableHead>
+            <TableHead>Net</TableHead><TableHead>Flow</TableHead><TableHead>Payout</TableHead><TableHead>Agent client</TableHead><TableHead>Status</TableHead><TableHead>Buyer email</TableHead><TableHead>Action</TableHead>
           </TableRow></TableHeader>
           <TableBody>
             {merchantOrders.map((order) => (
@@ -62,10 +65,17 @@ export default async function MerchantOrdersPage() {
                 <TableCell>{order.qty}</TableCell>
                 <TableCell>{formatPrice(order.amountCents)}</TableCell>
                 <TableCell>{formatPrice(order.netCents)}</TableCell>
-                <TableCell>{order.flow.replaceAll("_", " ")}</TableCell>
+                <TableCell>{order.flow === "agent_pass" ? "Agent Pass" : "Approval link"}</TableCell>
+                <TableCell>{order.flow === "agent_pass" ? <Badge variant="outline">{statusLabel(order.payoutStatus ?? "pending")}</Badge> : "—"}</TableCell>
                 <TableCell>{order.agentClient}</TableCell>
                 <TableCell><Badge variant="outline">{statusLabel(order.status)}</Badge></TableCell>
                 <TableCell>{order.buyerEmail ?? "—"}</TableCell>
+                <TableCell>{order.flow === "agent_pass" && order.status === "completed" && order.payoutStatus === "FAILED" ? (
+                  <form action={retryMerchantPayout}>
+                    <input name="orderId" type="hidden" value={order.id} />
+                    <Button className="merchant-payout-retry" type="submit" variant="outline">Retry payout</Button>
+                  </form>
+                ) : "—"}</TableCell>
               </TableRow>
             ))}
           </TableBody>

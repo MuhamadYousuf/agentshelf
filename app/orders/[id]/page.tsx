@@ -30,6 +30,9 @@ async function ReceiptContent({ params }: ReceiptProps) {
     amountCents: orders.amountCents,
     qty: orders.qty,
     captureId: orders.captureId,
+    flow: orders.flow,
+    payoutStatus: orders.payoutStatus,
+    payoutBatchId: orders.payoutBatchId,
     shipping: orders.shipping,
     shopName: merchants.name,
     shopSlug: merchants.slug,
@@ -74,9 +77,17 @@ async function ReceiptContent({ params }: ReceiptProps) {
             {order.shipping && (
               <p><span>Shipping to</span><strong>{order.shipping.name ?? "Buyer"}{order.shipping.address.city ? ` · ${order.shipping.address.city}` : ""}</strong></p>
             )}
-            <p className="receipt-paid-directly">Paid directly to {order.shopName} via PayPal.</p>
+            {order.flow === "agent_pass" ? (
+              <p className="receipt-paid-directly">
+                Paid autonomously by your Agent Pass. {order.payoutStatus === "SUCCESS" || order.payoutStatus === "COMPLETED"
+                  ? `Released to ${order.shopName} via PayPal Payouts`
+                  : `Merchant payout ${order.payoutStatus?.toLowerCase() ?? "pending"}`}.
+                {order.payoutBatchId ? <> Batch <code>{order.payoutBatchId}</code>.</> : null}
+              </p>
+            ) : <p className="receipt-paid-directly">Paid directly to {order.shopName} via PayPal.</p>}
           </section>
         )}
+        <p className="receipt-shipping-note">Price includes shipping.</p>
         {order.status === "approval_required" && (
           <p className="receipt-pending-note">Your order is reserved while PayPal confirms approval. This page will update after the payment is captured.</p>
         )}

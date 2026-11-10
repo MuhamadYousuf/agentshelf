@@ -1,28 +1,28 @@
+/**
+ * Marketplace adaptations to Algorithms 2–3: candidate prices clamp to [floor, list],
+ * offers never rise within a negotiation, and a buyer counter at or above our next
+ * selected offer is accepted at the buyer's price. Anonymous buyers start at 0.5.
+ */
 export const PRICING_PARAMS = {
-  /** Price-sensitive buyer acceptance curve slope. */
+  /** Price-sensitive buyer acceptance curve: 1 / (1 + exp(12 × (r - 0.92))). */
   sensitiveSlope: 12,
-  /** Price-sensitive buyer acceptance curve midpoint as a list-price ratio. */
   sensitiveMidpoint: 0.92,
-  /** Tolerant buyer acceptance curve slope. */
+  /** Tolerant buyer acceptance curve: 1 / (1 + exp(8 × (r - 1.05))). */
   tolerantSlope: 8,
-  /** Tolerant buyer acceptance curve midpoint as a list-price ratio. */
   tolerantMidpoint: 1.05,
-  /** Bayesian counter behavior slope and zero-gap threshold. */
-  counterSlope: 10,
-  counterGapThreshold: 0.05,
-  /** Belief is kept away from exact zero and one. */
+  /** Posterior belief remains away from exact zero and one. */
   minimumBelief: 0.02,
   maximumBelief: 0.98,
-  /** Merchant offer grids as fractions of list price, inclusive. */
-  cooperateRange: [0.97, 1.05] as const,
-  recoveryRange: [0.85, 0.9] as const,
-  /** Candidate spacing is one percent of list price. */
-  gridStep: 0.01,
-  /** Prices prefer half-dollar endings when snapped to the candidate grid. */
-  preferredIncrementCents: 50,
-  maximumRounds: 6,
-  lowballFinalRound: 4,
+  /** Algorithm 2 candidate multipliers, in order of lower then higher price. */
+  cooperateCandidates: [0.97, 1.05] as const,
+  recoveryCandidates: [0.85, 0.9] as const,
+  /** Estimated unit cost when the merchant has not supplied a private cost. */
   defaultCostRatio: 0.55,
+  maximumRounds: 6,
+  /** A counter below this ratio of our offer is an Algorithm 3 breach. */
+  breachTolerance: 1.05,
+  /** Algorithm 3's second consecutive tolerance breach triggers the final offer. */
+  finalBreachStreak: 2,
 } as const;
 
 export type PricingState = {
@@ -30,12 +30,14 @@ export type PricingState = {
   state: "cooperate" | "recovery";
   round: number;
   lastOfferCents: number | null;
-  /** The prior buyer counter supports the Tit-for-Tat reciprocity rule. */
   lastBuyerOfferCents?: number | null;
+  breachStreak?: number;
+  churnStreak?: number;
 };
 
 export type BuyerMove =
   | { type: "open" }
+  | { type: "question" }
   | { type: "counter"; priceCents: number }
   | { type: "accept" }
   | { type: "walk_away" };
@@ -49,7 +51,7 @@ export type PricingCandidate = {
 export type PricingDecision = {
   action: "offer" | "accept" | "final";
   priceCents: number;
-  nextState: PricingState;
+  nextState: PricingState & { breachStreak: number; churnStreak: number };
   trace: {
     belief: number;
     state: "cooperate" | "recovery";
@@ -63,93 +65,86 @@ function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function sigmoid(value: number): number {
-  if (value >= 0) return 1 / (1 + Math.exp(-value));
-  const exponential = Math.exp(value);
-  return exponential / (1 + exponential);
+function logisticAcceptance(priceCents: number, listCents: number, slope: number, midpoint: number): number {
+  return 1 / (1 + Math.exp(slope * (priceCents / listCents - midpoint)));
 }
 
 export function acceptanceProbability(priceCents: number, listCents: number, belief: number): number {
-  const ratio = priceCents / listCents;
-  const sensitive = 1 / (1 + Math.exp(
-    PRICING_PARAMS.sensitiveSlope * (ratio - PRICING_PARAMS.sensitiveMidpoint),
-  ));
-  const tolerant = 1 / (1 + Math.exp(
-    PRICING_PARAMS.tolerantSlope * (ratio - PRICING_PARAMS.tolerantMidpoint),
-  ));
-  return clamp(belief, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief) * sensitive +
-    (1 - clamp(belief, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief)) * tolerant;
+  const boundedBelief = clamp(belief, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief);
+  const sensitive = logisticAcceptance(
+    priceCents,
+    listCents,
+    PRICING_PARAMS.sensitiveSlope,
+    PRICING_PARAMS.sensitiveMidpoint,
+  );
+  const tolerant = logisticAcceptance(
+    priceCents,
+    listCents,
+    PRICING_PARAMS.tolerantSlope,
+    PRICING_PARAMS.tolerantMidpoint,
+  );
+  return boundedBelief * sensitive + (1 - boundedBelief) * tolerant;
 }
 
+/** Prior from an optional, trusted buyer segment. Unknown buyers use 0.5. */
+export function priorFromSegment(segment?: string | null): number {
+  if (!segment) return 0.5;
+  const normalized = segment.trim().toLowerCase();
+  if (normalized === "price_sensitive" || normalized === "price-sensitive") return 0.75;
+  if (normalized === "tolerant") return 0.25;
+  return 0.5;
+}
+
+/** Algorithm 2 Bayesian update using the likelihood of purchase at the last shown price. */
 export function updateBuyerBelief(
   belief: number,
   move: BuyerMove,
   listCents: number,
   lastOfferCents: number | null,
 ): number {
-  let likelihoodSensitive: number;
-  let likelihoodTolerant: number;
-
-  switch (move.type) {
-    case "open":
-      return clamp(belief, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief);
-    case "counter": {
-      const gap = lastOfferCents === null
-        ? (listCents - move.priceCents) / listCents
-        : (lastOfferCents - move.priceCents) / listCents;
-      likelihoodSensitive = sigmoid(PRICING_PARAMS.counterSlope * (gap - PRICING_PARAMS.counterGapThreshold));
-      likelihoodTolerant = 1 - likelihoodSensitive;
-      break;
-    }
-    case "accept":
-      likelihoodSensitive = 0.3;
-      likelihoodTolerant = 0.7;
-      break;
-    case "walk_away":
-      likelihoodSensitive = 0.8;
-      likelihoodTolerant = 0.3;
-      break;
+  if (move.type === "open") {
+    return clamp(belief, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief);
   }
 
+  const observedPrice = lastOfferCents ?? listCents;
+  const purchaseLikelihoodSensitive = logisticAcceptance(
+    observedPrice,
+    listCents,
+    PRICING_PARAMS.sensitiveSlope,
+    PRICING_PARAMS.sensitiveMidpoint,
+  );
+  const purchaseLikelihoodTolerant = logisticAcceptance(
+    observedPrice,
+    listCents,
+    PRICING_PARAMS.tolerantSlope,
+    PRICING_PARAMS.tolerantMidpoint,
+  );
+  const accepted = move.type === "accept" ||
+    (move.type === "counter" && lastOfferCents !== null && move.priceCents >= lastOfferCents);
+  const likelihoodSensitive = accepted ? purchaseLikelihoodSensitive : 1 - purchaseLikelihoodSensitive;
+  const likelihoodTolerant = accepted ? purchaseLikelihoodTolerant : 1 - purchaseLikelihoodTolerant;
   const prior = clamp(belief, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief);
-  const numerator = prior * likelihoodSensitive;
-  const denominator = numerator + (1 - prior) * likelihoodTolerant;
+  const sensitiveWeight = prior * likelihoodSensitive;
+  const tolerantWeight = (1 - prior) * likelihoodTolerant;
+  const denominator = sensitiveWeight + tolerantWeight;
   if (denominator <= 0) return PRICING_PARAMS.minimumBelief;
-  return clamp(numerator / denominator, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief);
+  return clamp(sensitiveWeight / denominator, PRICING_PARAMS.minimumBelief, PRICING_PARAMS.maximumBelief);
 }
 
-function snapCandidate(price: number, floorCents: number, listCents: number): number {
-  const increment = PRICING_PARAMS.preferredIncrementCents;
-  const snapped = Math.round(price / increment) * increment;
-  const bounded = clamp(snapped, floorCents, listCents);
-  if (bounded === floorCents && floorCents % increment !== 0) {
-    const nextPreferred = Math.ceil(floorCents / increment) * increment;
-    if (nextPreferred <= listCents) return nextPreferred;
-  }
-  if (bounded === listCents && listCents % increment !== 0) {
-    const previousPreferred = Math.floor(listCents / increment) * increment;
-    if (previousPreferred >= floorCents) return previousPreferred;
-  }
-  return bounded;
-}
-
-function candidateGrid(
+function candidatePrices(
   listCents: number,
   floorCents: number,
   state: "cooperate" | "recovery",
 ): number[] {
-  const [minimumRatio, maximumRatio] = state === "cooperate"
-    ? PRICING_PARAMS.cooperateRange
-    : PRICING_PARAMS.recoveryRange;
-  const prices: number[] = [];
-  const step = Math.max(1, Math.round(listCents * PRICING_PARAMS.gridStep));
-  const start = Math.round(listCents * minimumRatio);
-  const end = Math.round(listCents * maximumRatio);
-  for (let raw = start; raw <= end; raw += step) {
-    prices.push(snapCandidate(raw, floorCents, listCents));
-  }
-  prices.push(snapCandidate(end, floorCents, listCents));
-  return [...new Set(prices)].sort((left, right) => left - right);
+  const multipliers = state === "cooperate"
+    ? PRICING_PARAMS.cooperateCandidates
+    : PRICING_PARAMS.recoveryCandidates;
+  const bounded = multipliers.map((multiplier) => Math.round(clamp(
+    Math.round(listCents * multiplier),
+    floorCents,
+    listCents,
+  )));
+  return [...new Set(bounded)];
 }
 
 export function priceNextMove(input: {
@@ -159,84 +154,99 @@ export function priceNextMove(input: {
   state: PricingState;
   buyerMove: BuyerMove;
 }): PricingDecision {
-  const { listCents, floorCents, buyerMove } = input;
-  const floor = clamp(Math.round(floorCents), 1, Math.round(listCents));
-  const list = Math.max(1, Math.round(listCents));
-  const cost = input.costCents ?? Math.round(PRICING_PARAMS.defaultCostRatio * list);
-  const previousBuyerOffer = input.state.lastBuyerOfferCents ?? null;
-  const belief = updateBuyerBelief(input.state.belief, buyerMove, list, input.state.lastOfferCents);
+  const list = Math.max(1, Math.round(input.listCents));
+  const floor = clamp(Math.round(input.floorCents), 1, list);
+  const cost = input.costCents === undefined
+    ? Math.round(PRICING_PARAMS.defaultCostRatio * list)
+    : clamp(Math.round(input.costCents), 0, list);
+  const priorOffer = input.state.lastOfferCents === null
+    ? null
+    : clamp(Math.round(input.state.lastOfferCents), floor, list);
+  const priorBuyerOffer = input.state.lastBuyerOfferCents ?? null;
+  let belief = updateBuyerBelief(input.state.belief, input.buyerMove, list, priorOffer);
 
-  let state = input.state.state;
-  let stateReason: string | undefined;
-  if (buyerMove.type === "walk_away") {
-    state = "recovery";
-    stateReason = "walk_away→recovery";
-  } else if (buyerMove.type === "accept") {
+  const breach = input.buyerMove.type === "walk_away" || (
+    input.buyerMove.type === "counter" &&
+    priorOffer !== null &&
+    input.buyerMove.priceCents < priorOffer &&
+    priorOffer > input.buyerMove.priceCents * PRICING_PARAMS.breachTolerance
+  );
+  let breachStreak = input.buyerMove.type === "open"
+    ? (input.state.breachStreak ?? 0)
+    : breach
+      ? (input.state.breachStreak ?? 0) + 1
+      : 0;
+
+  let state: PricingState["state"] = breachStreak > 0 ? "recovery" : "cooperate";
+  let reason = breach
+    ? "breach→DEFECT_RECOVERY (Alg.3 l.21)"
+    : state === "recovery"
+      ? "recovery_persists (Alg.3)"
+      : "no_breach→cooperate (Alg.3)";
+
+  if (input.buyerMove.type === "accept") {
     state = "cooperate";
-  } else if (
-    buyerMove.type === "counter" &&
-    previousBuyerOffer !== null &&
-    buyerMove.priceCents > previousBuyerOffer
-  ) {
-    state = "cooperate";
-    stateReason = "reciprocal_counter→cooperate";
+    breachStreak = 0;
+    reason = "buyer_accept→cooperate (Alg.3)";
   }
 
-  const candidates = candidateGrid(list, floor, state).map((priceCents) => ({
-    priceCents,
-    pAccept: acceptanceProbability(priceCents, list, belief),
-    eu: acceptanceProbability(priceCents, list, belief) * (priceCents - cost),
-  }));
-  const best = candidates.reduce((chosen, candidate) => candidate.eu > chosen.eu ? candidate : chosen);
-  const chosen = clamp(
-    input.state.lastOfferCents === null ? best.priceCents : Math.min(best.priceCents, input.state.lastOfferCents),
-    floor,
-    list,
-  );
+  let candidates = candidatePrices(list, floor, state).map((priceCents) => {
+    const pAccept = acceptanceProbability(priceCents, list, belief);
+    return { priceCents, pAccept, eu: pAccept * (priceCents - cost) };
+  });
+  const selectCandidate = (options: PricingCandidate[]) => options.reduce((best, candidate) => candidate.eu > best.eu ? candidate : best);
+  let best = selectCandidate(candidates);
+  let chosen = priorOffer === null ? best.priceCents : Math.min(best.priceCents, priorOffer);
   const nextRound = Math.min(PRICING_PARAMS.maximumRounds, Math.max(0, input.state.round) + 1);
-  const nextState: PricingState = {
+  let action: PricingDecision["action"] = "offer";
+  let priceCents = chosen;
+  const acceptedCounter = input.buyerMove.type === "counter" && input.buyerMove.priceCents >= chosen;
+  if (acceptedCounter && priorOffer !== null && input.buyerMove.type === "counter" && input.buyerMove.priceCents < priorOffer) {
+    belief = updateBuyerBelief(input.state.belief, { type: "accept" }, list, priorOffer);
+    candidates = candidatePrices(list, floor, state).map((priceCents) => {
+      const pAccept = acceptanceProbability(priceCents, list, belief);
+      return { priceCents, pAccept, eu: pAccept * (priceCents - cost) };
+    });
+    best = selectCandidate(candidates);
+    chosen = Math.min(best.priceCents, priorOffer);
+    priceCents = chosen;
+  }
+  if (input.buyerMove.type === "accept") {
+    action = "accept";
+    priceCents = priorOffer ?? chosen;
+    reason = "buyer_accepts_offer";
+  } else if (input.buyerMove.type === "counter" && acceptedCounter) {
+    action = "accept";
+    priceCents = clamp(input.buyerMove.priceCents, floor, list);
+    state = "cooperate";
+    reason = "counter≥offer→accept";
+  } else if (breachStreak >= PRICING_PARAMS.finalBreachStreak) {
+    action = "final";
+    reason = "breach_streak≥2→FINAL_OFFER (Alg.3)";
+  } else if (nextRound >= PRICING_PARAMS.maximumRounds) {
+    action = "final";
+    reason = "round_cap→FINAL_OFFER (Alg.3)";
+  }
+
+  if (input.buyerMove.type === "accept" || acceptedCounter) {
+    state = "cooperate";
+    breachStreak = 0;
+  }
+  const nextState = {
     belief,
     state,
     round: nextRound,
-    lastOfferCents: chosen,
-    lastBuyerOfferCents: buyerMove.type === "counter" ? buyerMove.priceCents : previousBuyerOffer,
+    lastOfferCents: priceCents,
+    lastBuyerOfferCents: input.buyerMove.type === "counter" ? input.buyerMove.priceCents : priorBuyerOffer,
+    breachStreak,
+    // Retained as a zeroed compatibility field for the P03 database column; Algorithm 3 uses breachStreak.
+    churnStreak: 0,
   };
 
-  let action: PricingDecision["action"] = "offer";
-  let priceCents = chosen;
-  let reason = stateReason ?? "expected_utility_maximum";
-
-  if (buyerMove.type === "accept") {
-    action = "accept";
-    priceCents = clamp(input.state.lastOfferCents ?? list, floor, list);
-    reason = "buyer_accepts_offer";
-  } else if (buyerMove.type === "counter" && buyerMove.priceCents >= chosen) {
-    action = "accept";
-    priceCents = clamp(buyerMove.priceCents, floor, list);
-    state = "cooperate";
-    reason = "counter≥offer→accept";
-  } else if (
-    (buyerMove.type === "counter" && buyerMove.priceCents < floor && nextRound >= PRICING_PARAMS.lowballFinalRound) ||
-    nextRound >= PRICING_PARAMS.maximumRounds
-  ) {
-    action = "final";
-    reason = buyerMove.type === "counter" && buyerMove.priceCents < floor
-      ? "below_floor→final"
-      : "round_cap→final";
-  }
-
-  nextState.lastOfferCents = priceCents;
-  nextState.state = state;
   return {
     action,
-    priceCents,
+    priceCents: clamp(priceCents, floor, list),
     nextState,
-    trace: {
-      belief,
-      state,
-      candidates,
-      chosen,
-      reason,
-    },
+    trace: { belief, state, candidates, chosen, reason },
   };
 }

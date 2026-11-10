@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { events, orders, products, type OrderShipping } from "@/lib/db/schema";
+import { buyerPasses, events, orders, products, type OrderShipping } from "@/lib/db/schema";
 
 export class InventoryError extends Error {
   constructor(message: string) {
@@ -50,6 +50,7 @@ export async function release(productId: string, quantity: number): Promise<void
 
 export async function completeOrderOnce(input: {
   orderId: string;
+  paypalOrderId?: string;
   captureId: string;
   paypalFeeCents: number;
   netCents: number;
@@ -60,6 +61,7 @@ export async function completeOrderOnce(input: {
   return db.transaction(async (tx) => {
     const [order] = await tx.update(orders).set({
       status: "completed",
+      ...(input.paypalOrderId ? { paypalOrderId: input.paypalOrderId } : {}),
       captureId: input.captureId,
       paypalFeeCents: input.paypalFeeCents,
       netCents: input.netCents,
@@ -68,8 +70,15 @@ export async function completeOrderOnce(input: {
       updatedAt: new Date(),
     }).where(and(
       eq(orders.id, input.orderId),
-      inArray(orders.status, ["approval_required", "approved"]),
-    )).returning({ merchantId: orders.merchantId, productId: orders.productId, qty: orders.qty });
+      inArray(orders.status, ["created", "approval_required", "approved"]),
+    )).returning({
+      merchantId: orders.merchantId,
+      productId: orders.productId,
+      qty: orders.qty,
+      flow: orders.flow,
+      passId: orders.passId,
+      amountCents: orders.amountCents,
+    });
     if (!order) return false;
 
     const [stock] = await tx.update(products).set({
@@ -82,6 +91,16 @@ export async function completeOrderOnce(input: {
       sql`${products.reserved} >= ${order.qty}`,
     )).returning({ id: products.id });
     if (!stock) throw new InventoryError("The captured order has no remaining stock to commit.");
+
+    if (order.flow === "agent_pass" && order.passId) {
+      const [updatedPass] = await tx.update(buyerPasses).set({
+        pendingCents: sql`GREATEST(0, ${buyerPasses.pendingCents} - ${order.amountCents})`,
+        spentCents: sql`${buyerPasses.spentCents} + ${order.amountCents}`,
+        lastUsedAt: new Date(),
+        updatedAt: new Date(),
+      }).where(eq(buyerPasses.id, order.passId)).returning({ id: buyerPasses.id });
+      if (!updatedPass) throw new Error("The Agent Pass budget reservation could not be committed.");
+    }
 
     await tx.insert(events).values({
       merchantId: order.merchantId,
@@ -111,13 +130,26 @@ export async function failOrderAndRelease(input: {
     }).where(and(
       eq(orders.id, input.orderId),
       inArray(orders.status, ["created", "approval_required"]),
-    )).returning({ merchantId: orders.merchantId, productId: orders.productId, qty: orders.qty });
+    )).returning({
+      merchantId: orders.merchantId,
+      productId: orders.productId,
+      qty: orders.qty,
+      flow: orders.flow,
+      passId: orders.passId,
+      amountCents: orders.amountCents,
+    });
     if (!order) return false;
 
     await tx.update(products).set({
       reserved: sql`GREATEST(0, ${products.reserved} - ${order.qty})`,
       updatedAt: new Date(),
     }).where(eq(products.id, order.productId));
+    if (order.flow === "agent_pass" && order.passId) {
+      await tx.update(buyerPasses).set({
+        pendingCents: sql`GREATEST(0, ${buyerPasses.pendingCents} - ${order.amountCents})`,
+        updatedAt: new Date(),
+      }).where(eq(buyerPasses.id, order.passId));
+    }
     await tx.insert(events).values({
       merchantId: order.merchantId,
       type: "checkout.failed",
@@ -143,12 +175,25 @@ export async function expireStaleReservations(now = new Date()): Promise<number>
         buyerNote: "expired",
         updatedAt: new Date(),
       }).where(and(eq(orders.id, id), inArray(orders.status, ["created", "approval_required"])))
-        .returning({ merchantId: orders.merchantId, productId: orders.productId, qty: orders.qty });
+        .returning({
+          merchantId: orders.merchantId,
+          productId: orders.productId,
+          qty: orders.qty,
+          flow: orders.flow,
+          passId: orders.passId,
+          amountCents: orders.amountCents,
+        });
       if (!order) continue;
       await tx.update(products).set({
         reserved: sql`GREATEST(0, ${products.reserved} - ${order.qty})`,
         updatedAt: new Date(),
       }).where(eq(products.id, order.productId));
+      if (order.flow === "agent_pass" && order.passId) {
+        await tx.update(buyerPasses).set({
+          pendingCents: sql`GREATEST(0, ${buyerPasses.pendingCents} - ${order.amountCents})`,
+          updatedAt: new Date(),
+        }).where(eq(buyerPasses.id, order.passId));
+      }
       await tx.insert(events).values({
         merchantId: order.merchantId,
         type: "checkout.failed",
