@@ -6,6 +6,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -62,6 +63,26 @@ export type OrderTracking = {
   url?: string;
 };
 
+export type PricingTraceEntry = {
+  belief: number;
+  state: "cooperate" | "recovery";
+  candidates: Array<{ priceCents: number; pAccept: number; eu: number }>;
+  chosen: number;
+  reason: string;
+};
+
+export type OrderShipping = {
+  name: string | null;
+  address: {
+    addressLine1?: string;
+    addressLine2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    countryCode?: string;
+  };
+};
+
 export const productStatus = pgEnum("product_status", [
   "draft",
   "published",
@@ -81,6 +102,11 @@ export const negotiationStatus = pgEnum("negotiation_status", [
   "agreed",
   "declined",
   "expired",
+]);
+
+export const negotiationPricingState = pgEnum("negotiation_pricing_state", [
+  "cooperate",
+  "recovery",
 ]);
 
 export const orderStatus = pgEnum("order_status", [
@@ -152,6 +178,7 @@ export const products = pgTable(
     category: text("category").notNull(),
     listPriceCents: integer("list_price_cents").notNull(),
     floorPriceCents: integer("floor_price_cents").notNull(),
+    costCents: integer("cost_cents"),
     maxDiscountPct: integer("max_discount_pct"),
     stock: integer("stock").notNull().default(0),
     reserved: integer("reserved").notNull().default(0),
@@ -233,6 +260,12 @@ export const negotiations = pgTable(
       .notNull()
       .default([]),
     status: negotiationStatus("status").notNull().default("open"),
+    state: negotiationPricingState("state").notNull().default("cooperate"),
+    belief: real("belief").notNull().default(0.5),
+    round: integer("round").notNull().default(0),
+    lastOfferCents: integer("last_offer_cents"),
+    lastBuyerOfferCents: integer("last_buyer_offer_cents"),
+    trace: jsonb("trace").$type<PricingTraceEntry[]>().notNull().default([]),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -248,7 +281,6 @@ export const quotes = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     negotiationId: uuid("negotiation_id")
-      .notNull()
       .references(() => negotiations.id, { onDelete: "cascade" }),
     productId: uuid("product_id")
       .notNull()
@@ -299,6 +331,12 @@ export const orders = pgTable(
     flow: orderFlow("flow").notNull(),
     agentClient: text("agent_client").notNull(),
     buyerNote: text("buyer_note"),
+    shipping: jsonb("shipping").$type<OrderShipping>(),
+    paypalFeeCents: integer("paypal_fee_cents"),
+    netCents: integer("net_cents"),
+    payoutBatchId: text("payout_batch_id"),
+    payoutStatus: text("payout_status"),
+    buyerEmail: text("buyer_email"),
     tracking: jsonb("tracking").$type<OrderTracking>(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -322,9 +360,13 @@ export const events = pgTable(
     type: text("type").notNull(),
     source: eventSource("source").notNull(),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    externalId: text("external_id"),
     createdAt: createdAt(),
   },
-  (table) => [index("events_merchant_id_idx").on(table.merchantId)],
+  (table) => [
+    index("events_merchant_id_idx").on(table.merchantId),
+    uniqueIndex("events_external_id_unique").on(table.externalId),
+  ],
 );
 
 export const rateLimits = pgTable("rate_limits", {

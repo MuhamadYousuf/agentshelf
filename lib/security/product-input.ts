@@ -26,6 +26,7 @@ export const draftProductFieldsSchema = z.object({
   tags: tagsSchema,
   listPriceCents: z.number().int().min(0).max(500_000),
   floorPriceCents: z.number().int().min(0).max(500_000),
+  costCents: z.number().int().min(0).max(500_000).nullable().default(null),
   stock: z.number().int().min(0).max(999),
   maxDiscountPct: z.number().int().min(0).max(50),
 });

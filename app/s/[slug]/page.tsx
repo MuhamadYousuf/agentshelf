@@ -10,6 +10,7 @@ import { ProductImage } from "@/components/storefront/product-image";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getAppUrl } from "@/lib/env";
+import { formatCategory } from "@/lib/commerce/categories";
 import { getDb } from "@/lib/db";
 import { merchants, products } from "@/lib/db/schema";
 
@@ -52,6 +53,7 @@ async function StorefrontContent({ params }: StorePageProps) {
       category: products.category,
       listPriceCents: products.listPriceCents,
       stock: products.stock,
+      reserved: products.reserved,
     })
     .from(products)
     .where(
@@ -105,16 +107,18 @@ async function StorefrontContent({ params }: StorePageProps) {
 
               return (
                 <article className="product-card" key={product.id}>
-                  <ProductImage category={product.category} imageId={image?.id} title={product.title} />
-                  <div className="product-card-body">
-                    <span className="product-card-category">{product.category}</span>
-                    <h3 className="product-card-title">{product.title}</h3>
-                    <p className="product-card-description">{product.description}</p>
-                    <div className="product-card-price">
-                      <strong>{price}</strong>
-                      <span>{product.stock} available</span>
+                  <Link aria-label={`View ${product.title}`} className="product-card-link" href={`/s/${merchant.slug}/p/${product.id}`}>
+                    <ProductImage category={product.category} imageId={image?.id} title={product.title} />
+                    <div className="product-card-body">
+                      <span className="product-card-category">{formatCategory(product.category)}</span>
+                      <h3 className="product-card-title">{product.title}</h3>
+                      <p className="product-card-description">{product.description}</p>
+                      <div className="product-card-price">
+                        <strong>{price}</strong>
+                        <span>{Math.max(0, product.stock - product.reserved)} available</span>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 </article>
               );
             })}

@@ -23,6 +23,7 @@ export default async function MerchantProductReviewPage({ params }: ProductPageP
       tags: products.tags,
       listPriceCents: products.listPriceCents,
       floorPriceCents: products.floorPriceCents,
+      costCents: products.costCents,
       maxDiscountPct: products.maxDiscountPct,
       stock: products.stock,
       status: products.status,

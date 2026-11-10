@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { requireMerchant } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { products } from "@/lib/db/schema";
+import { formatCategory } from "@/lib/commerce/categories";
 
 export default async function MerchantOverviewPage() {
   const merchant = await requireMerchant();
@@ -17,7 +18,7 @@ export default async function MerchantOverviewPage() {
       total: sql<number>`count(*)::int`,
       published: sql<number>`count(*) filter (where ${products.status} = 'published')::int`,
       drafts: sql<number>`count(*) filter (where ${products.status} = 'draft')::int`,
-      stockOut: sql<number>`count(*) filter (where ${products.status} = 'published' and ${products.stock} = 0)::int`,
+      stockOut: sql<number>`count(*) filter (where ${products.status} = 'published' and ${products.stock} - ${products.reserved} <= 0)::int`,
     })
     .from(products)
     .where(eq(products.merchantId, merchant.id));
@@ -90,7 +91,7 @@ export default async function MerchantOverviewPage() {
               </span>
               <span>
                 <span className="merchant-recent-title">{product.title || "Untitled draft"}</span>
-                <span className="merchant-recent-meta">{product.category.replaceAll("_", " ")} · Updated {product.updatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                <span className="merchant-recent-meta">{formatCategory(product.category)} · Updated {product.updatedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
               </span>
               <span className="merchant-recent-price">
                 {formatPrice(product.listPriceCents)} <Badge className={`product-state-badge ${product.status}`} variant="outline">{product.status}</Badge>

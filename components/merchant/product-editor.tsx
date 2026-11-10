@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCategory } from "@/lib/commerce/categories";
 import {
   deleteDraftAction,
   improveDescriptionAction,
@@ -44,6 +45,7 @@ type ReviewProduct = {
   tags: string[];
   listPriceCents: number;
   floorPriceCents: number;
+  costCents: number | null;
   maxDiscountPct: number | null;
   stock: number;
   status: "draft" | "published" | "blocked" | "archived";
@@ -53,18 +55,7 @@ type ReviewProduct = {
   aiSuggestions: AiSuggestions | null;
 };
 
-const categories = [
-  ["ceramics", "Ceramics"],
-  ["textiles", "Textiles"],
-  ["jewelry", "Jewelry"],
-  ["home_decor", "Home decor"],
-  ["art_prints", "Art prints"],
-  ["stationery", "Stationery"],
-  ["kitchen", "Kitchen"],
-  ["accessories", "Accessories"],
-  ["beauty", "Beauty"],
-  ["other", "Other"],
-] as const;
+const categories = ["ceramics", "textiles", "jewelry", "home_decor", "art_prints", "stationery", "kitchen", "accessories", "beauty", "other"] as const;
 
 type AttributeRow = { key: string; value: string };
 
@@ -218,8 +209,8 @@ export function ProductEditor({ product }: { product: ReviewProduct }) {
 
           <section className="listing-editor-section">
             <label htmlFor="listing-category">Category</label>
-            <select defaultValue={categories.some(([value]) => value === product.category) ? product.category : "other"} id="listing-category" name="category">
-              {categories.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            <select defaultValue={categories.some((value) => value === product.category) ? product.category : "other"} id="listing-category" name="category">
+            {categories.map((value) => <option key={value} value={value}>{formatCategory(value)}</option>)}
             </select>
           </section>
 
@@ -259,6 +250,11 @@ export function ProductEditor({ product }: { product: ReviewProduct }) {
                 <p className="listing-private-floor">Private. Agents never see this. Negotiation never goes below it.</p>
                 {product.aiSuggestions && <span className="listing-ai-hint">AI suggested {formatPrice(product.aiSuggestions.floorPriceCents)}</span>}
               </div>
+            </div>
+            <div className="listing-private-cost-field">
+              <label htmlFor="listing-cost-price">Your cost (private)</label>
+              <Input defaultValue={product.costCents === null ? "" : (product.costCents / 100).toFixed(2)} id="listing-cost-price" min="0" name="costPrice" step="0.01" type="number" />
+              <p className="listing-private-floor">Private to this shop. Agents never see it.</p>
             </div>
           </section>
 

@@ -68,6 +68,9 @@ function readEditableFields(formData: FormData) {
     tags: readTags(formData),
     listPriceCents: dollarsToCents(readText(formData, "listPrice")),
     floorPriceCents: dollarsToCents(readText(formData, "floorPrice")),
+    costCents: readText(formData, "costPrice").trim()
+      ? dollarsToCents(readText(formData, "costPrice"))
+      : null,
     stock: Number(readText(formData, "stock")),
     maxDiscountPct: Number(readText(formData, "maxDiscountPct")),
   };
