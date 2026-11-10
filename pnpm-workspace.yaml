@@ -3,4 +3,3 @@ allowBuilds:
   msw: false
   sharp: true
   unrs-resolver: false
-storeDir: C:\Users\muham\AppData\Local\pnpm\store\v11

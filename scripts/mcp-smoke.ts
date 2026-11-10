@@ -7,7 +7,7 @@ import { isAgentPassToken, sha256 } from "@/lib/passes/security";
 
 config({ path: ".env.local", quiet: true });
 
-const endpoint = "http://localhost:3000/api/mcp";
+const endpoint = process.env.MCP_SMOKE_URL ?? "http://localhost:3000/api/mcp";
 
 function record(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {

@@ -1,0 +1,8 @@
+.env*
+!.env.example
+spikes
+.ai
+.claude
+.impeccable
+video
+*.tsbuildinfo

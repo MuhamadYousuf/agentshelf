@@ -38,3 +38,7 @@ yarn-error.log*
 
 # Local AI tooling
 .claude/
+.vercel
+
+.vercel
+.env*
