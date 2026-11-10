@@ -9,7 +9,9 @@ import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { HeroMotion } from "@/components/landing/hero-motion";
 import { HeroPreview } from "@/components/landing/hero-preview";
+import { ConnectAgent } from "@/components/landing/connect-agent";
 import { Button } from "@/components/ui/button";
+import { getAppUrl } from "@/lib/env";
 
 const makerFeatures = [
   "Turn product photos into listing drafts you can review.",
@@ -24,6 +26,7 @@ const agentFeatures = [
 ];
 
 export default function HomePage() {
+  const mcpEndpoint = `${getAppUrl().replace(/\/+$/, "")}/api/mcp`;
   return (
     <>
       <header className="site-header">
@@ -33,6 +36,7 @@ export default function HomePage() {
             <a href="#how-it-works">How it works</a>
             <a href="#for-makers">For makers</a>
             <a href="#for-agents">For AI agents</a>
+            <a href="#connect-agent">Connect</a>
           </nav>
           <div className="header-actions">
             <Link className="header-login" href="/merchant/login">
@@ -171,6 +175,22 @@ export default function HomePage() {
                 </ul>
               </article>
             </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="connect-agent-title" className="section-block connect-agent-section" id="connect-agent">
+          <div className="page-wrap connect-agent-grid">
+            <div className="connect-agent-intro">
+              <h2 className="section-heading" id="connect-agent-title">Connect your agent.</h2>
+              <p className="section-intro">
+                Give your assistant one endpoint to search the shelf, request a signed offer, and hand a PayPal approval link back to you.
+              </p>
+              <div className="connect-agent-endpoint">
+                <span>Streamable HTTP endpoint</span>
+                <code>{mcpEndpoint}</code>
+              </div>
+            </div>
+            <ConnectAgent endpoint={mcpEndpoint} />
           </div>
         </section>
 

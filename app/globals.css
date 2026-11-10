@@ -658,3 +658,127 @@ button { cursor: pointer; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+.connect-agent-section { border-top: 1px solid #e6e1d9; }
+.connect-agent-grid { display: grid; grid-template-columns: minmax(240px,.68fr) minmax(0,1.32fr); align-items: start; gap: clamp(34px,6vw,78px); }
+.connect-agent-intro { position: sticky; top: 36px; }
+.connect-agent-intro .section-heading { max-width: 10ch; }
+.connect-agent-endpoint { display: grid; gap: 7px; margin-top: 25px; padding: 13px 15px; border: 1px solid #e3ded7; border-radius: 11px; background: #fffdfa; }
+.connect-agent-endpoint span { color: #716c76; font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
+.connect-agent-endpoint code { color: #34299d; font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.connect-agent-list { overflow: hidden; border: 1px solid #e6e1d9; border-radius: 15px; background: #fffdfa; }
+.connect-agent-row { display: grid; grid-template-columns: minmax(140px,.58fr) minmax(0,1.2fr) auto; align-items: center; gap: 16px; padding: 17px 18px; }
+.connect-agent-row + .connect-agent-row { border-top: 1px solid #eee9e2; }
+.connect-agent-copy { min-width: 0; }
+.connect-agent-title-line { display: flex; align-items: center; gap: 6px; }
+.connect-agent-title-line h3 { margin: 0; color: #242331; font-size: 13px; font-weight: 650; }
+.connect-agent-title-line svg { color: #7b7581; }
+.connect-agent-copy p { margin: 5px 0 0; color: #625e68; font-size: 11px; line-height: 1.5; }
+.connect-agent-row pre { min-width: 0; max-width: 100%; margin: 0; padding: 11px 12px; overflow: auto; border: 1px solid #ede8e1; border-radius: 9px; background: #f8f6f2; color: #292733; }
+.connect-agent-row code { font-family: var(--font-mono); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.connect-agent-copy-button { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid #dcd6cd; border-radius: 9px; background: #fffdfa; color: #373342; font-size: 10px; font-weight: 650; white-space: nowrap; transition: border-color 150ms ease, background 150ms ease, color 150ms ease; }
+.connect-agent-copy-button:hover { border-color: #aaa2d9; background: #f5f3fc; color: #2f258e; }
+.connect-agent-copy-button:focus-visible { outline: 3px solid rgb(59 46 208 / 25%); outline-offset: 2px; }
+
+@media (max-width: 980px) {
+  .connect-agent-grid { grid-template-columns: 1fr; }
+  .connect-agent-intro { position: static; }
+  .connect-agent-intro .section-heading { max-width: 14ch; }
+}
+
+@media (max-width: 640px) {
+  .connect-agent-grid { gap: 26px; }
+  .connect-agent-row { grid-template-columns: minmax(0,1fr) auto; gap: 11px; padding: 15px; }
+  .connect-agent-copy { grid-column: 1 / -1; }
+  .connect-agent-row pre { grid-column: 1; grid-row: 2; }
+  .connect-agent-copy-button { grid-column: 2; grid-row: 2; }
+  .connect-agent-row pre code { font-size: 9px; }
+}
+
+.negotiations-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.negotiations-page-head .merchant-page-subtitle { max-width: 68ch; }
+.negotiations-table-shell { border: 1px solid #e6e1d9; border-radius: 13px; background: #fffdfa; }
+.negotiations-table { min-width: 780px; }
+.negotiations-table th { color: #716c76; font-size: 10px; font-weight: 650; }
+.negotiations-table td { height: 62px; color: #4c4853; font-size: 12px; }
+.negotiation-product-cell a { color: #242331; font-weight: 600; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; transition: color 140ms ease,text-decoration-color 140ms ease; }
+.negotiation-product-cell a:hover { color: #34299d; text-decoration-color: #a9a1db; }
+.negotiation-client-name { display: inline-block; max-width: 180px; overflow: hidden; color: #544f5b; text-overflow: ellipsis; vertical-align: bottom; white-space: nowrap; }
+.negotiation-number { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.negotiation-status-badge { border-color: #e3ded7 !important; background: #f5f2ed !important; color: #55515c !important; font-size: 10px !important; text-transform: capitalize; }
+.negotiation-status-badge.open { border-color: #e5c67f !important; background: #fff2d7 !important; color: #674604 !important; }
+.negotiation-status-badge.agreed { border-color: #cce0d1 !important; background: #eef6f0 !important; color: #315a48 !important; }
+.negotiation-status-badge.declined,.negotiation-status-badge.expired { border-color: #e9d7d4 !important; background: #faf0ee !important; color: #81514d !important; }
+.negotiations-empty { display: grid; justify-items: center; gap: 12px; padding: 36px 24px; }
+.negotiations-empty p { max-width: 54ch; margin: 0; }
+.negotiations-empty .button { margin-top: 5px; }
+.negotiation-back-link { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 19px; color: #625e68; font-size: 12px; }
+.negotiation-back-link:hover { color: #34299d; }
+.negotiation-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 25px; border-bottom: 1px solid #e6e1d9; }
+.negotiation-detail-meta { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; color: #77727e; font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.negotiation-detail-head .merchant-page-title { font-size: clamp(36px,4vw,48px); }
+.negotiation-detail-head .merchant-page-subtitle { font-size: 12px; }
+.negotiation-detail-head > .negotiation-status-badge { margin-top: 8px; }
+.negotiation-detail-layout { display: grid; grid-template-columns: minmax(0,.92fr) minmax(0,1.08fr); align-items: start; gap: 22px; margin-top: 24px; }
+.negotiation-transcript-panel,.negotiation-pricing-panel { min-width: 0; overflow: hidden; border: 1px solid #e6e1d9; border-radius: 14px; background: #fffdfa; }
+.negotiation-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 18px 19px 16px; border-bottom: 1px solid #eee9e2; }
+.negotiation-panel-heading h2 { margin: 0; color: #242331; font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.negotiation-panel-heading p { margin: 5px 0 0; color: #716c76; font-size: 10px; line-height: 1.45; }
+.negotiation-round-count { color: #aaa4ae; font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums; }
+.negotiation-transcript { display: grid; gap: 17px; padding: 20px 16px; }
+.negotiation-message { display: grid; grid-template-columns: 28px minmax(0,1fr); align-items: start; gap: 10px; }
+.negotiation-message.buyer { padding-left: 22px; }
+.negotiation-message-avatar { display: grid; width: 27px; height: 27px; place-items: center; border: 1px solid #e4dfd8; border-radius: 50%; background: #f5f2ed; color: #615c66; }
+.negotiation-message.merchant .negotiation-message-avatar { border-color: #dcd7f0; background: #f2f0fa; color: #34299d; }
+.negotiation-message-body { min-width: 0; padding: 10px 12px; border: 1px solid #ece7e0; border-radius: 11px 11px 11px 4px; background: #faf8f5; }
+.negotiation-message.buyer .negotiation-message-body { border-color: #e7e2d8; border-radius: 11px 11px 4px 11px; background: #f4f1ec; }
+.negotiation-message-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.negotiation-message-meta strong { overflow: hidden; color: #48444e; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.negotiation-message-meta time { color: #8a858f; font-size: 9px; white-space: nowrap; }
+.negotiation-message-body > p { margin: 6px 0 0; color: #393641; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.negotiation-offer-chip { display: inline-flex; margin-top: 8px; padding: 4px 7px; border: 1px solid #e2d8bf; border-radius: 999px; background: #fff7e8; color: #765311; font-size: 9px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.negotiation-transcript-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 13px 19px; border-top: 1px solid #eee9e2; background: #faf8f5; color: #706b75; font-size: 10px; }
+.negotiation-transcript-footer strong { color: #242331; font-size: 12px; font-variant-numeric: tabular-nums; }
+.pricing-panel-spark { margin-top: 1px; color: #735514; }
+.negotiation-trace-list { display: grid; }
+.negotiation-trace-round { padding: 17px 18px 18px; }
+.negotiation-trace-round + .negotiation-trace-round { border-top: 1px solid #eee9e2; }
+.negotiation-trace-round-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.negotiation-trace-round-head h3 { margin: 0; color: #393641; font-size: 11px; font-weight: 650; }
+.negotiation-state-badge { border-color: #dcd8d2 !important; background: #f5f2ed !important; color: #5a5660 !important; font-size: 9px !important; }
+.negotiation-state-badge.cooperate { border-color: #cce0d1 !important; background: #eef6f0 !important; color: #315a48 !important; }
+.negotiation-state-badge.recovery { border-color: #e5c67f !important; background: #fff2d7 !important; color: #674604 !important; }
+.belief-meter { margin-top: 15px; }
+.belief-meter-label { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; color: #6b6671; font-size: 10px; }
+.belief-meter-label strong { color: #373342; font-size: 11px; font-variant-numeric: tabular-nums; }
+.belief-meter-track { height: 6px; margin-top: 7px; overflow: hidden; border-radius: 999px; background: #eeebe7; }
+.belief-meter-track > span { display: block; height: 100%; border-radius: inherit; background: #f0ae36; }
+.trace-chart { display: flex; gap: 5px; margin-top: 18px; padding: 8px 4px 6px; overflow-x: auto; border-bottom: 1px solid #e9e4dd; }
+.trace-chart-column { display: grid; min-width: 54px; flex: 1 0 54px; grid-template-rows: 16px 82px 16px 14px; justify-items: center; gap: 3px; padding: 3px 2px 4px; border-radius: 7px; }
+.trace-chart-column.chosen { background: #f3f1fb; }
+.trace-chart-utility { color: #77727e; font-family: var(--font-mono); font-size: 8px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trace-chart-bar-track { display: flex; width: 20px; height: 100%; align-items: flex-end; overflow: hidden; border-radius: 5px 5px 2px 2px; background: #f0ede8; }
+.trace-chart-bar-track > span { display: block; width: 100%; min-height: 5px; border-radius: 5px 5px 2px 2px; background: #aaa5b5; }
+.trace-chart-column.chosen .trace-chart-bar-track > span { background: #3b2ed0; }
+.trace-chart-price { color: #4b4752; font-size: 8px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trace-chart-column.chosen .trace-chart-price { color: #34299d; }
+.trace-chart-probability { color: #8a858f; font-size: 7px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.trace-reason { margin: 14px 0 0; color: #625e68; font-size: 10px; line-height: 1.55; }
+.trace-reason strong { color: #383541; font-weight: 650; }
+.negotiation-trace-footnote { margin: 0; padding: 12px 18px; border-top: 1px solid #eee9e2; background: #faf8f5; color: #77727e; font-size: 9px; line-height: 1.5; }
+.negotiation-trace-empty { margin: 0; padding: 20px 18px; color: #716c76; font-size: 11px; }
+
+@media (max-width: 980px) {
+  .negotiation-detail-layout { grid-template-columns: minmax(0,1fr); }
+  .negotiation-pricing-panel { order: 2; }
+}
+
+@media (max-width: 640px) {
+  .negotiations-page-head { align-items: flex-start; flex-direction: column; gap: 15px; margin-bottom: 23px; }
+  .negotiation-detail-head { flex-direction: column-reverse; gap: 10px; }
+  .negotiation-detail-head > .negotiation-status-badge { margin-top: 0; }
+  .negotiation-detail-layout { gap: 16px; margin-top: 18px; }
+  .negotiation-transcript { gap: 14px; padding: 16px 12px; }
+  .negotiation-message.buyer { padding-left: 10px; }
+  .negotiation-trace-round { padding-inline: 13px; }
+}

@@ -376,3 +376,16 @@ export const rateLimits = pgTable("rate_limits", {
     .notNull()
     .defaultNow(),
 });
+
+// Streamable HTTP is stateless on Vercel. Keep only a short-lived, hashed
+// request fingerprint so tool calls can retain the name received at initialize.
+export const mcpClients = pgTable(
+  "mcp_clients",
+  {
+    fingerprint: text("fingerprint").primaryKey(),
+    clientName: text("client_name").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [index("mcp_clients_expires_at_idx").on(table.expiresAt)],
+);
