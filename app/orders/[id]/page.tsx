@@ -12,6 +12,7 @@ import { merchants, orders, products } from "@/lib/db/schema";
 
 export const metadata: Metadata = {
   title: "Order receipt",
+  description: "Private AgentShelf order status and payment receipt.",
   robots: { index: false, follow: false },
 };
 

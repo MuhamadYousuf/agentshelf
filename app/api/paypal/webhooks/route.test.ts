@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const config = vi.hoisted(() => ({ webhookId: "test-webhook-id" as string | undefined }));
+const config = vi.hoisted(() => ({ webhookId: "test-webhook-id" as string | undefined, rateAllowed: true }));
 vi.mock("@/lib/env", () => ({
   getPaypalConfiguration: () => ({ environment: "sandbox", clientId: "test-id", clientSecret: "test-secret", webhookId: config.webhookId }),
 }));
@@ -9,11 +9,15 @@ vi.mock("@/lib/commerce/inventory", () => ({
   completeOrderOnce: vi.fn(async () => true),
   failOrderAndRelease: vi.fn(async () => true),
 }));
+vi.mock("@/lib/security/ratelimit", () => ({
+  consumeFixedWindowLimit: vi.fn(async () => ({ allowed: config.rateAllowed, resetsAt: new Date(Date.now() + 30_000) })),
+}));
 
 import { POST } from "./route";
 
 afterEach(() => {
   config.webhookId = "test-webhook-id";
+  config.rateAllowed = true;
   vi.restoreAllMocks();
 });
 
@@ -33,5 +37,16 @@ describe("PayPal webhook route gates", () => {
       body: JSON.stringify({ id: "event-unsigned", event_type: "PAYMENT.CAPTURE.COMPLETED" }),
     }));
     expect(response.status).toBe(400);
+  });
+
+  it("rate limits public webhook verification", async () => {
+    config.rateAllowed = false;
+    const response = await POST(new Request("https://shop.test/api/paypal/webhooks", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    }));
+    expect(response.status).toBe(429);
+    expect(response.headers.get("retry-after")).toBeTruthy();
   });
 });

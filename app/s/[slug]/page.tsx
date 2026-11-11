@@ -19,7 +19,8 @@ type StorePageProps = {
 };
 
 export const metadata: Metadata = {
-  title: "Independent maker storefronts",
+  title: "Maker storefront",
+  description: "Browse published handmade products from an independent AgentShelf shop.",
 };
 
 function StorefrontFallback() {

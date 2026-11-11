@@ -36,6 +36,7 @@ function ownedOrder(overrides: Partial<OwnedOrderForAction> = {}): OwnedOrderFor
     agentClient: "AgentShelf Shopper",
     payoutStatus: "SUCCESS",
     tracking: null,
+    isDemo: false,
     ...overrides,
   };
 }
@@ -92,6 +93,18 @@ describe("merchant Copilot tools", () => {
     expect(result).toMatchObject({ status: "needs_confirmation", order_id: "order-1", amount_cents: 2_380 });
     expect(effects).toHaveLength(1);
     expect(deps.addTracking).not.toHaveBeenCalled();
+  });
+
+  it.each(["add_tracking", "get_paypal_order"] as const)("blocks %s on demo history before the action dependency", async (toolName) => {
+    const deps = dependencies(ownedOrder({ isDemo: true }));
+    const tools = createCopilotTools("merchant-1", deps);
+    const context = { toolCallId: "demo-block", messages: [], abortSignal: new AbortController().signal, context: {} };
+    const result = toolName === "add_tracking"
+      ? await tools.add_tracking.execute({ order_id: "order-1", carrier: "UPS", tracking_number: "1Z999AA10123456784" }, context)
+      : await tools.get_paypal_order.execute({ order_id: "order-1" }, context);
+    expect(JSON.stringify(result)).toContain("This is seeded demo history; PayPal actions work on live orders.");
+    expect(deps.addTracking).not.toHaveBeenCalled();
+    expect(deps.getPayPalOrder).not.toHaveBeenCalled();
   });
 
   it("returns a friendly error for another merchant's order", async () => {

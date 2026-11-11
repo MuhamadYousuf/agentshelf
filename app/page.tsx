@@ -37,6 +37,7 @@ export default function HomePage() {
             <a href="#for-makers">For makers</a>
             <a href="#for-agents">For AI agents</a>
             <a href="#connect-agent">Connect</a>
+            <Link href="/tour">Judge tour</Link>
           </nav>
           <div className="header-actions">
             <Link className="header-login" href="/merchant/login">

@@ -5,10 +5,30 @@ import { completeOrderOnce, expireStaleReservations, failOrderAndRelease } from 
 import { getDb } from "@/lib/db";
 import { orders } from "@/lib/db/schema";
 import { captureOrder } from "@/lib/paypal/orders";
+import { getMcpClientIp } from "@/lib/mcp/request-context";
+import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 
 const orderIdSchema = z.uuid();
 
 export async function GET(request: Request): Promise<Response> {
+  let rateLimit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    rateLimit = await consumeFixedWindowLimit({
+      key: `paypal:return:${getMcpClientIp(request)}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
+  } catch {
+    return NextResponse.json({ error: "The PayPal return is temporarily unavailable." }, { status: 503 });
+  }
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.max(1, Math.ceil((rateLimit.resetsAt.getTime() - Date.now()) / 1_000));
+    return NextResponse.json({ error: "Too many PayPal return requests. Try again shortly." }, {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
+  }
+
   await expireStaleReservations();
   const url = new URL(request.url);
   const orderId = url.searchParams.get("order");

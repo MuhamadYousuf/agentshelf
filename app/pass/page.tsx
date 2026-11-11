@@ -52,6 +52,8 @@ async function PassPageContent({ searchParams }: PassPageProps) {
     ? "Check the limits: step-up must be within the per-order limit, and the per-order limit must be within your total budget."
     : query.error === "setup"
       ? "PayPal could not start the approval. Your draft pass was closed; please try again."
+      : query.error === "rate"
+        ? "You have created five passes this hour. Please wait before creating another."
       : query.cancelled === "1"
         ? "Approval was cancelled. Your payment method was not saved."
         : null;

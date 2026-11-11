@@ -10,6 +10,7 @@ import { PayPalError } from "@/lib/paypal/client";
 import { createPayout } from "@/lib/paypal/payouts";
 import { addTrackingForMerchant, confirmRefundForMerchant, MerchantOrderActionError } from "@/lib/merchant/order-operations";
 import { orderTrackingCarriers, type OrderTrackingCarrier } from "@/lib/merchant/order-operations-core";
+import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 
 const orderIdSchema = z.uuid();
 const trackingActionSchema = z.object({
@@ -18,6 +19,19 @@ const trackingActionSchema = z.object({
   trackingNumber: z.string().regex(/^[A-Z0-9-]{6,40}$/),
 }).strict();
 const refundActionSchema = z.object({ orderId: z.uuid(), reason: z.string().trim().min(1).max(240) }).strict();
+
+async function merchantPaypalActionAllowed(merchantId: string): Promise<boolean> {
+  try {
+    const limit = await consumeFixedWindowLimit({
+      key: `merchant-paypal-action:${merchantId}`,
+      limit: 30,
+      windowMs: 60 * 60_000,
+    });
+    return limit.allowed;
+  } catch {
+    return false;
+  }
+}
 
 export async function saveOrderTrackingAction(input: {
   orderId: string;
@@ -30,6 +44,9 @@ export async function saveOrderTrackingAction(input: {
   });
   if (!parsed.success) return { success: false, message: "Enter a valid carrier and tracking number." };
   const merchant = await requireMerchant();
+  if (!(await merchantPaypalActionAllowed(merchant.id))) {
+    return { success: false, message: "PayPal actions are temporarily limited. Try again after the hourly reset." };
+  }
   try {
     const result = await addTrackingForMerchant({
       merchantId: merchant.id,
@@ -55,6 +72,9 @@ export async function confirmOrderRefundAction(input: {
   const parsed = refundActionSchema.safeParse(input);
   if (!parsed.success) return { success: false, message: "This refund request is not valid." };
   const merchant = await requireMerchant();
+  if (!(await merchantPaypalActionAllowed(merchant.id))) {
+    return { success: false, message: "PayPal actions are temporarily limited. Try again after the hourly reset." };
+  }
   const result = await confirmRefundForMerchant({
     merchantId: merchant.id,
     orderId: parsed.data.orderId,
@@ -67,9 +87,9 @@ export async function confirmOrderRefundAction(input: {
   return result;
 }
 
-export async function retryMerchantPayout(formData: FormData): Promise<void> {
+export async function retryMerchantPayout(formData: FormData): Promise<{ success: boolean; message: string }> {
   const parsed = orderIdSchema.safeParse(formData.get("orderId"));
-  if (!parsed.success) return;
+  if (!parsed.success) return { success: false, message: "This payout retry is not valid." };
   const merchant = await requireMerchant();
   const db = getDb();
   const [row] = await db.select({
@@ -78,6 +98,7 @@ export async function retryMerchantPayout(formData: FormData): Promise<void> {
     payoutStatus: orders.payoutStatus,
     flow: orders.flow,
     status: orders.status,
+    isDemo: orders.isDemo,
     productTitle: products.title,
     paypalEmail: merchants.paypalEmail,
   }).from(orders).innerJoin(merchants, eq(orders.merchantId, merchants.id))
@@ -87,9 +108,15 @@ export async function retryMerchantPayout(formData: FormData): Promise<void> {
       eq(orders.merchantId, merchant.id),
       eq(orders.flow, "agent_pass"),
       eq(orders.status, "completed"),
+      eq(orders.isDemo, false),
       eq(orders.payoutStatus, "FAILED"),
     )).limit(1);
-  if (!row || !row.amountCents || row.amountCents < 1) return;
+  if (!row || !row.amountCents || row.amountCents < 1) {
+    return { success: false, message: "This payout is no longer available to retry." };
+  }
+  if (!(await merchantPaypalActionAllowed(merchant.id))) {
+    return { success: false, message: "PayPal actions are temporarily limited. Try again after the hourly reset." };
+  }
 
   try {
     const payout = await createPayout({
@@ -109,6 +136,8 @@ export async function retryMerchantPayout(formData: FormData): Promise<void> {
       source: "merchant",
       payload: { orderId: row.id, payoutBatchId: batchId, payoutStatus },
     });
+    revalidatePath("/merchant/orders");
+    return { success: true, message: "Payout retry sent." };
   } catch (error) {
     await db.update(orders).set({ payoutStatus: "FAILED", updatedAt: new Date() })
       .where(and(eq(orders.id, row.id), eq(orders.merchantId, merchant.id)));
@@ -118,6 +147,6 @@ export async function retryMerchantPayout(formData: FormData): Promise<void> {
       source: "merchant",
       payload: { orderId: row.id, ...(error instanceof PayPalError && error.debugId ? { debugId: error.debugId } : {}) },
     }).catch(() => undefined);
+    return { success: false, message: "PayPal could not retry the payout. Review the order and try again later." };
   }
-  revalidatePath("/merchant/orders");
 }

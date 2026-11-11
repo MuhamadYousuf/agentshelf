@@ -7,6 +7,8 @@ import { buyerPasses, events } from "@/lib/db/schema";
 import { isPassOwner, setPassFlash } from "@/lib/passes/owner";
 import { sha256 } from "@/lib/passes/security";
 import { createPaymentToken } from "@/lib/paypal/vault";
+import { getMcpClientIp } from "@/lib/mcp/request-context";
+import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 
 const passIdSchema = z.uuid();
 
@@ -15,6 +17,24 @@ function redirectToPass(request: Request, passId: string, query: string): Respon
 }
 
 export async function GET(request: Request): Promise<Response> {
+  let rateLimit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    rateLimit = await consumeFixedWindowLimit({
+      key: `pass:return:${getMcpClientIp(request)}`,
+      limit: 60,
+      windowMs: 60_000,
+    });
+  } catch {
+    return new Response("Agent Pass activation is temporarily unavailable.", { status: 503 });
+  }
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.max(1, Math.ceil((rateLimit.resetsAt.getTime() - Date.now()) / 1_000));
+    return new Response("Too many Agent Pass activation requests. Try again shortly.", {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
+  }
+
   const url = new URL(request.url);
   console.info("PayPal Agent Pass return query keys:", [...url.searchParams.keys()].sort());
   const passId = url.searchParams.get("pass");

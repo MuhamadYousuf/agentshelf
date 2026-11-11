@@ -22,6 +22,7 @@ video/node_modules/
 test-results/
 playwright-report/
 *.log
+attacks-report.json
 .DS_Store
 Thumbs.db
 .vscode/

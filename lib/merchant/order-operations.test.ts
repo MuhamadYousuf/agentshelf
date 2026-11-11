@@ -22,6 +22,7 @@ function order(overrides: Partial<OwnedOrderForAction> = {}): OwnedOrderForActio
     agentClient: "AgentShelf Shopper",
     payoutStatus: "SUCCESS",
     tracking: null,
+    isDemo: false,
     ...overrides,
   };
 }
@@ -79,6 +80,20 @@ describe("merchant order operations", () => {
     expect(result.message).toBe("Saved on AgentShelf; PayPal tracking for direct payments must be added from your PayPal account.");
   });
 
+  it("does not call PayPal for demo tracking and returns the seeded-history notice", async () => {
+    const deps = dependencies(order({ isDemo: true, captureId: null, paypalOrderId: null }));
+    const result = await addTrackingForMerchant({
+      merchantId: "merchant-1",
+      orderId: "order-1",
+      carrier: "UPS",
+      trackingNumber: "1Z999AA10123456784",
+    }, deps);
+    expect(result.message).toBe("This is seeded demo history; PayPal actions work on live orders.");
+    expect(result.paypalSynced).toBe(false);
+    expect(deps.executeToolkit).not.toHaveBeenCalled();
+    expect(deps.saveTracking).toHaveBeenCalledOnce();
+  });
+
   it("prepares a Flow B refund confirmation without executing a refund", async () => {
     const deps = dependencies();
     const preview = await prepareRefundConfirmation({
@@ -106,6 +121,7 @@ describe("merchant order operations", () => {
       order({ flow: "approval_link" }),
       order({ status: "refunded" }),
       order({ status: "approval_required" }),
+      order({ isDemo: true }),
     ];
     for (const row of ineligibleOrders) {
       const deps = dependencies(row);

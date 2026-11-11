@@ -19,6 +19,7 @@ export type OwnedOrderForAction = {
   agentClient: string;
   payoutStatus: string | null;
   tracking: OrderTracking | null;
+  isDemo: boolean;
 };
 
 export type OrderOperationDependencies = {
@@ -63,6 +64,7 @@ const databaseDependencies: OrderOperationDependencies = {
       agentClient: orders.agentClient,
       payoutStatus: orders.payoutStatus,
       tracking: orders.tracking,
+      isDemo: orders.isDemo,
     }).from(orders)
       .innerJoin(products, eq(orders.productId, products.id))
       .where(and(eq(orders.id, orderId), eq(orders.merchantId, merchantId), eq(products.merchantId, merchantId)))
@@ -123,7 +125,7 @@ const databaseDependencies: OrderOperationDependencies = {
 };
 
 export class MerchantOrderActionError extends Error {
-  constructor(readonly code: "NOT_FOUND" | "NOT_COMPLETED" | "FLOW_NOT_REFUNDABLE" | "ALREADY_REFUNDED" | "MISSING_CAPTURE" | "INVALID_TRACKING") {
+  constructor(readonly code: "NOT_FOUND" | "NOT_COMPLETED" | "FLOW_NOT_REFUNDABLE" | "ALREADY_REFUNDED" | "MISSING_CAPTURE" | "INVALID_TRACKING" | "DEMO_HISTORY") {
     super(orderActionMessages[code]);
     this.name = "MerchantOrderActionError";
   }
@@ -136,6 +138,7 @@ const orderActionMessages = {
   ALREADY_REFUNDED: "This order has already been refunded.",
   MISSING_CAPTURE: "PayPal has not returned a capture for this order yet.",
   INVALID_TRACKING: "Enter a tracking number with 6–40 letters, numbers, or hyphens.",
+  DEMO_HISTORY: "This is seeded demo history; PayPal actions work on live orders.",
 } as const;
 
 export async function addTrackingForMerchant(input: {
@@ -149,13 +152,16 @@ export async function addTrackingForMerchant(input: {
   const row = await dependencies.loadOwnedOrder(input.merchantId, input.orderId);
   if (!row) throw new MerchantOrderActionError("NOT_FOUND");
   if (row.status !== "completed") throw new MerchantOrderActionError("NOT_COMPLETED");
-  if (!row.captureId) throw new MerchantOrderActionError("MISSING_CAPTURE");
-
   const tracking: OrderTracking = {
     carrier: input.carrier,
     trackingNumber,
     ...(makeTrackingUrl(input.carrier, trackingNumber) ? { url: makeTrackingUrl(input.carrier, trackingNumber) } : {}),
   };
+  if (row.isDemo) {
+    await dependencies.saveTracking(input.merchantId, row.id, tracking, false);
+    return { message: orderActionMessages.DEMO_HISTORY, paypalSynced: false };
+  }
+  if (!row.captureId) throw new MerchantOrderActionError("MISSING_CAPTURE");
   const toolkitArgs = mapCreateShipmentTrackingArgs({
     captureId: row.captureId,
     paypalOrderId: row.paypalOrderId,
@@ -199,6 +205,7 @@ export async function prepareRefundConfirmation(input: {
 }, dependencies: Pick<OrderOperationDependencies, "loadOwnedOrder"> = databaseDependencies): Promise<RefundPreview> {
   const row = await dependencies.loadOwnedOrder(input.merchantId, input.orderId);
   if (!row) throw new MerchantOrderActionError("NOT_FOUND");
+  if (row.isDemo) throw new MerchantOrderActionError("DEMO_HISTORY");
   if (row.flow !== "agent_pass") throw new MerchantOrderActionError("FLOW_NOT_REFUNDABLE");
   if (row.status === "refunded") throw new MerchantOrderActionError("ALREADY_REFUNDED");
   if (row.status !== "completed") throw new MerchantOrderActionError("NOT_COMPLETED");
@@ -220,6 +227,7 @@ export async function confirmRefundForMerchant(input: {
   try {
     const row = await dependencies.loadOwnedOrder(input.merchantId, input.orderId);
     if (!row) throw new MerchantOrderActionError("NOT_FOUND");
+    if (row.isDemo) throw new MerchantOrderActionError("DEMO_HISTORY");
     if (row.flow !== "agent_pass") throw new MerchantOrderActionError("FLOW_NOT_REFUNDABLE");
     if (row.status === "refunded") throw new MerchantOrderActionError("ALREADY_REFUNDED");
     if (row.status !== "completed") throw new MerchantOrderActionError("NOT_COMPLETED");

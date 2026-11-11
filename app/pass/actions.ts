@@ -1,7 +1,9 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { and, eq } from "drizzle-orm";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getAppUrl } from "@/lib/env";
@@ -10,6 +12,7 @@ import { buyerPasses, events } from "@/lib/db/schema";
 import { createSetupToken } from "@/lib/paypal/vault";
 import { rememberPassOwner } from "@/lib/passes/owner";
 import { sha256 } from "@/lib/passes/security";
+import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 
 const categories = [
   "ceramics",
@@ -52,6 +55,22 @@ export async function createAgentPass(formData: FormData): Promise<void> {
       raw.data.perOrderMaxCents > raw.data.totalBudgetCents) {
     redirect("/pass?error=details");
   }
+
+  const requestHeaders = await headers();
+  const forwardedFor = requestHeaders.get("x-forwarded-for")?.split(",", 1)[0]?.trim();
+  const clientIp = forwardedFor || requestHeaders.get("x-real-ip") || "unknown";
+  const clientKey = createHash("sha256").update(clientIp).digest("hex");
+  let passCreationLimit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    passCreationLimit = await consumeFixedWindowLimit({
+      key: `pass-create:${clientKey}`,
+      limit: 5,
+      windowMs: 60 * 60_000,
+    });
+  } catch {
+    redirect("/pass?error=setup");
+  }
+  if (!passCreationLimit.allowed) redirect("/pass?error=rate");
 
   const ownerKey = randomBytes(32).toString("base64url");
   const now = new Date();

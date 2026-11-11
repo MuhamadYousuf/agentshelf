@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bot, LoaderCircle, Send, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { confirmOrderRefundAction } from "@/app/merchant/(protected)/orders/actions";
 import { Button } from "@/components/ui/button";
+import { CopilotMarkdown } from "@/components/merchant/copilot-markdown";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import type { CopilotEffect, GridViewSpec } from "@/lib/merchant/copilot-contracts";
 
@@ -35,6 +36,12 @@ export function CopilotPanel({ onGridView, onOrderChanged }: {
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [refunded, setRefunded] = useState<string[]>([]);
+  const threadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (open && thread) thread.scrollTop = thread.scrollHeight;
+  }, [busy, messages, open]);
 
   async function sendMessage(text: string) {
     const message = text.trim();
@@ -109,9 +116,9 @@ export function CopilotPanel({ onGridView, onOrderChanged }: {
           <span className="copilot-icon"><Bot aria-hidden="true" size={17} /></span>
           <div><SheetTitle>Copilot</SheetTitle><SheetDescription>Powered by PayPal Agent Toolkit</SheetDescription></div>
         </SheetHeader>
-        <div aria-label="Copilot conversation" aria-live="polite" className="copilot-thread">
+        <div aria-label="Copilot conversation" aria-live="polite" className="copilot-thread" ref={threadRef}>
           {messages.length === 0 ? <div className="copilot-welcome"><span className="copilot-welcome-mark"><Sparkles aria-hidden="true" /></span><h3>How can I help your shop?</h3><p>Ask about sales, find an order, or prepare an order action.</p></div> : messages.map((message) => <article className={`copilot-message ${message.role}`} key={message.id}>
-            <p>{message.text}</p>
+            {message.role === "copilot" ? <CopilotMarkdown text={message.text} /> : <p>{message.text}</p>}
             {message.refund && <div className="copilot-refund-confirm">
               <strong>{message.refund.summary}</strong>
               <p>This refund will be sent from AgentShelf escrow. In production the merchant payout is held until the delivery window ends.</p>
@@ -125,7 +132,12 @@ export function CopilotPanel({ onGridView, onOrderChanged }: {
         {messages.length === 0 && <div className="copilot-suggestions"><span>Try asking</span>{suggestions.map((suggestion) => <button key={suggestion} onClick={() => void sendMessage(suggestion)} type="button">{suggestion}</button>)}</div>}
         <form className="copilot-compose" onSubmit={(event) => { event.preventDefault(); void sendMessage(draft); }}>
           <label className="sr-only" htmlFor="copilot-message">Ask Copilot</label>
-          <textarea id="copilot-message" maxLength={1_000} onChange={(event) => setDraft(event.target.value)} placeholder="Ask about sales or an order…" rows={2} value={draft} />
+          <textarea id="copilot-message" maxLength={1_000} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+              event.preventDefault();
+              if (!busy && draft.trim()) event.currentTarget.form?.requestSubmit();
+            }
+          }} placeholder="Ask about sales or an order…" rows={2} value={draft} />
           <Button aria-label="Send to Copilot" disabled={busy || !draft.trim()} size="icon" type="submit"><Send aria-hidden="true" size={15} /></Button>
         </form>
       </SheetContent>

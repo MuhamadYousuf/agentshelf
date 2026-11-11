@@ -14,7 +14,10 @@
     "paypal:toolkit:sandbox-check": "node --conditions=react-server --import tsx scripts/paypal-toolkit-sandbox-check.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "node --conditions=react-server --import tsx lib/db/seed.ts",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "demo:reset": "node --conditions=react-server --import tsx scripts/demo-reset.ts",
+    "attacks": "node --conditions=react-server --import tsx scripts/attack-suite.ts",
+    "secrets:scan": "node --conditions=react-server --import tsx scripts/secrets-scan.ts"
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.114",

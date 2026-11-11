@@ -41,21 +41,24 @@ const navigationItems: NavigationItem[] = [
   { href: "/merchant/settings", label: "Settings", icon: Settings2 },
 ];
 
-function isCurrentPath(pathname: string, href: string): boolean {
-  return href === "/merchant"
-    ? pathname === href
-    : pathname === href || pathname.startsWith(`${href}/`);
+function currentNavigationHref(pathname: string): string | undefined {
+  return navigationItems
+    .filter(({ href }) => href === "/merchant"
+      ? pathname === href
+      : pathname === href || pathname.startsWith(`${href}/`))
+    .sort((left, right) => right.href.length - left.href.length)[0]?.href;
 }
 
 function NavigationLinks({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
+  const activeHref = currentNavigationHref(pathname);
 
   return (
     <nav aria-label="Merchant navigation" className="merchant-nav">
       {navigationItems.map(({ href, label, icon: Icon, prominent }) => {
         const link = (
           <Link
-            aria-current={isCurrentPath(pathname, href) ? "page" : undefined}
+            aria-current={href === activeHref ? "page" : undefined}
             className={`merchant-nav-link${prominent ? " merchant-nav-capture" : ""}`}
             href={href}
             key={href}

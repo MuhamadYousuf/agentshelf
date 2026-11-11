@@ -19,6 +19,7 @@ const orderRow = makeMerchantOrderRow({
   tracking: null,
   negotiationId: "neg-1",
   rounds: 3,
+  isDemo: false,
   shipping: { address: { city: "Lahore", countryCode: "PK" } },
 });
 

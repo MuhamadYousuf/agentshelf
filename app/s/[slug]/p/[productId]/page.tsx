@@ -19,7 +19,10 @@ type ProductPageProps = {
   searchParams: Promise<{ checkout?: string }>;
 };
 
-export const metadata: Metadata = { title: "Handmade product" };
+export const metadata: Metadata = {
+  title: "Handmade product",
+  description: "See a handmade product's details, availability, and PayPal checkout options.",
+};
 
 function price(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);

@@ -17,6 +17,7 @@ import {
   listingCategories,
   publishProductSchema,
 } from "@/lib/security/product-input";
+import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 import { sanitizeListingText } from "@/lib/security/sanitize";
 
 export type ProductActionResult = {
@@ -159,6 +160,20 @@ async function syncPayPalCatalog(productId: string, merchantId: string): Promise
   }
   if (product.paypalProductId) {
     return { ok: true, message: "This product is already synced to PayPal Catalog." };
+  }
+
+  let catalogLimit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    catalogLimit = await consumeFixedWindowLimit({
+      key: `catalog-sync:${merchantId}`,
+      limit: 20,
+      windowMs: 60 * 60_000,
+    });
+  } catch {
+    return { ok: true, message: "Published. PayPal Catalog sync is pending — retry when the service is available.", syncPending: true };
+  }
+  if (!catalogLimit.allowed) {
+    return { ok: true, message: "Published. PayPal Catalog sync is pending — retry after the hourly limit resets.", syncPending: true };
   }
 
   const [merchant] = await getDb()
@@ -315,6 +330,19 @@ export async function improveDescriptionAction(formData: FormData): Promise<Prod
 
   const category = categorySchema.safeParse(readText(formData, "category"));
   if (!category.success) return { ok: false, message: "Choose a product category first." };
+  let improveLimit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    improveLimit = await consumeFixedWindowLimit({
+      key: `listing-improve:${session.merchantId}`,
+      limit: 20,
+      windowMs: 60 * 60_000,
+    });
+  } catch {
+    return { ok: false, message: "Description improvement is temporarily unavailable. Try again shortly." };
+  }
+  if (!improveLimit.allowed) {
+    return { ok: false, message: "You have improved 20 descriptions this hour. Try again after the hourly reset." };
+  }
   const description = sanitizeListingText(readText(formData, "description"), 600);
   const title = sanitizeListingText(readText(formData, "title"), 80);
   const improved = await improveListingDescription({

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/sheet";
 import { retryMerchantPayout, saveOrderTrackingAction, confirmOrderRefundAction } from "@/app/merchant/(protected)/orders/actions";
 import { gridViewToAgGridModel, type GridViewSpec } from "@/lib/merchant/copilot-contracts";
+import { aggregatePaidOrderTotals, type PaidOrderTotals } from "@/lib/merchant/order-totals";
 import type { MerchantOrderRow } from "@/lib/merchant/orders-feed";
 import type { NegotiationMessage, OrderTracking, PricingTraceEntry } from "@/lib/db/schema";
 
@@ -54,6 +55,7 @@ function TimeCell({ data }: ICellRendererParams<MerchantOrderRow>) {
 
 function ProductCell({ data }: ICellRendererParams<MerchantOrderRow>) {
   if (!data) return null;
+  if (data.id === "__totals__") return <strong className="orders-total-label">{data.title}</strong>;
   return <span className="orders-product-cell">
     <span className="orders-product-thumb">{data.thumbnailUrl && <Image alt="" fill sizes="38px" src={data.thumbnailUrl} unoptimized />}</span>
     <span className="orders-product-name">{data.title}</span>
@@ -61,12 +63,20 @@ function ProductCell({ data }: ICellRendererParams<MerchantOrderRow>) {
 }
 
 function ChannelCell({ data }: ICellRendererParams<MerchantOrderRow>) {
-  if (!data) return null;
+  if (!data || data.id === "__totals__") return null;
   return <span className={`orders-channel-cell ${data.channel}`}><Badge className={data.channel === "agent" ? "orders-agent-badge" : "orders-store-badge"} variant="outline">{data.channel === "agent" ? "Agent" : "Storefront"}</Badge><small>{data.channel === "agent" ? data.agentClient : "Online shop"}</small></span>;
 }
 
 function DiscountCell({ data }: ICellRendererParams<MerchantOrderRow>) {
   return data ? <span className={`orders-discount ${data.discountPct > 0 ? "has-discount" : ""}`}>{data.discountPct > 0 ? `−${data.discountPct.toFixed(1)}%` : "—"}</span> : null;
+}
+
+function AmountCell({ data, value, valueFormatted }: ICellRendererParams<MerchantOrderRow>) {
+  if (!data) return null;
+  if (data.id === "__totals__") {
+    return <span className="orders-total-amount"><strong>{usd(data.amountCents)}</strong>{data.refundedCents ? <small>−{usd(data.refundedCents)} refunded</small> : null}</span>;
+  }
+  return <span>{valueFormatted ?? usd(Number(value ?? 0))}</span>;
 }
 
 function StatusCell({ data }: ICellRendererParams<MerchantOrderRow>) {
@@ -86,6 +96,25 @@ function TrackingCell({ data }: ICellRendererParams<MerchantOrderRow>) {
     : <span className="orders-tracking-link">{data.tracking.carrier} · {data.tracking.trackingNumber}</span>;
 }
 
+function gridViewLabels(view: GridViewSpec): string[] {
+  const labels: string[] = [];
+  const filters = view.filters;
+  if (filters?.channel) labels.push(filters.channel === "agent" ? "Agent" : "Storefront");
+  if (filters?.flow) labels.push(filters.flow === "agent_pass" ? "Agent Pass" : "PayPal link");
+  if (filters?.status) labels.push(humanize(filters.status));
+  if (filters?.amount) {
+    const minimum = filters.amount.min;
+    const maximum = filters.amount.max;
+    if (minimum !== undefined && maximum !== undefined) labels.push(`${usd(minimum)}–${usd(maximum)}`);
+    else if (minimum !== undefined) labels.push(`≥ ${usd(minimum)}`);
+    else if (maximum !== undefined) labels.push(`≤ ${usd(maximum)}`);
+  }
+  if (filters?.agent_client) labels.push(filters.agent_client);
+  if (view.quick_filter) labels.push(`“${view.quick_filter}”`);
+  if (view.sort) labels.push(`Sorted by ${view.sort.columnId} ${view.sort.direction === "desc" ? "high to low" : "low to high"}`);
+  return labels.length > 0 ? labels : ["Custom view"];
+}
+
 type OrderDetail = {
   id: string;
   createdAt: string;
@@ -99,6 +128,7 @@ type OrderDetail = {
   paypalOrderId: string | null;
   payoutBatchId: string | null;
   payoutStatus: string | null;
+  isDemo: boolean;
   tracking: OrderTracking | null;
   shippingCity: string | null;
   shippingCountry: string | null;
@@ -183,10 +213,14 @@ function OrderDetails({ orderId, onChanged }: { orderId: string; onChanged: () =
   }
 
   async function retryPayout(formData: FormData) {
-    await retryMerchantPayout(formData);
+    const result = await retryMerchantPayout(formData);
+    if (!result.success) {
+      toast.error(result.message);
+      return;
+    }
     await loadDetail();
     onChanged();
-    toast.success("Payout retry sent.");
+    toast.success(result.message);
   }
 
   if (loading) return <div className="order-detail-loading"><LoaderCircle className="copilot-spin" size={18} /> Loading order details…</div>;
@@ -197,7 +231,7 @@ function OrderDetails({ orderId, onChanged }: { orderId: string; onChanged: () =
     <section className="order-detail-summary">
       <div className="order-detail-product">
         <span className="order-detail-thumb">{detail.product.thumbnailUrl && <Image alt="" fill sizes="58px" src={detail.product.thumbnailUrl} unoptimized />}</span>
-        <span><strong>{detail.product.title}</strong><small>{detail.qty} item{detail.qty === 1 ? "" : "s"} · {dateTime(detail.createdAt)}</small></span>
+        <span><strong>{detail.product.title}{detail.isDemo && <Badge className="demo-history-badge" variant="outline">Demo history</Badge>}</strong><small>{detail.qty} item{detail.qty === 1 ? "" : "s"} · {dateTime(detail.createdAt)}</small></span>
       </div>
       <div className="order-detail-total"><span>Order total</span><strong>{usd(detail.amountCents)}</strong></div>
       <div className="order-detail-facts">
@@ -235,8 +269,41 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
   const cursorRef = useRef(initialCursor);
   const pollingRef = useRef(false);
   const [rows, setRows] = useState(initialRows);
+  const [paidTotals, setPaidTotals] = useState<PaidOrderTotals>(() => aggregatePaidOrderTotals(initialRows));
   const [quickFilter, setQuickFilter] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [copilotView, setCopilotView] = useState<GridViewSpec | null>(null);
+  const [highlightGrid, setHighlightGrid] = useState(false);
+  const highlightTimer = useRef<number | null>(null);
+
+  const refreshVisibleTotals = useCallback(() => {
+    const visibleRows: MerchantOrderRow[] = [];
+    const api = apiRef.current;
+    if (api) {
+      api.forEachNodeAfterFilter((node) => {
+        if (node.data && node.data.id !== "__totals__") visibleRows.push(node.data);
+      });
+    } else {
+      visibleRows.push(...rowsRef.current);
+    }
+    const nextTotals = aggregatePaidOrderTotals(visibleRows);
+    setPaidTotals((current) => current.paidOrderCount === nextTotals.paidOrderCount
+      && current.paidCents === nextTotals.paidCents
+      && current.refundedCents === nextTotals.refundedCents
+      ? current
+      : nextTotals);
+  }, []);
+
+  const pulseGrid = useCallback(() => {
+    setHighlightGrid(false);
+    window.requestAnimationFrame(() => setHighlightGrid(true));
+    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
+    highlightTimer.current = window.setTimeout(() => setHighlightGrid(false), 1_350);
+  }, []);
+
+  useEffect(() => () => {
+    if (highlightTimer.current !== null) window.clearTimeout(highlightTimer.current);
+  }, []);
 
   const refreshFeed = useCallback(async () => {
     if (pollingRef.current || document.visibilityState !== "visible") return;
@@ -282,17 +349,20 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
 
   useEffect(() => {
     const api = apiRef.current;
-    if (api) api.setGridOption("quickFilterText", quickFilter);
-  }, [quickFilter]);
+    if (api) {
+      api.setGridOption("quickFilterText", quickFilter);
+      refreshVisibleTotals();
+    }
+  }, [quickFilter, refreshVisibleTotals]);
 
   const columnDefs = useMemo<ColDef<MerchantOrderRow>[]>(() => [
     { headerName: "Time", field: "createdAt", colId: "createdAt", width: 114, minWidth: 102, filter: "agDateColumnFilter", filterParams: { comparator: (filterDate: Date, cellValue: string) => { const localDate = cellValue.slice(0, 10).split("-").map(Number); const cellDate = new Date(localDate[0], (localDate[1] ?? 1) - 1, localDate[2] ?? 1); return cellDate.getTime() < filterDate.getTime() ? -1 : cellDate.getTime() > filterDate.getTime() ? 1 : 0; } }, cellRenderer: TimeCell, tooltipValueGetter: (params) => params.data?.createdAt ? dateTime(params.data.createdAt) : undefined, sortable: true },
     { headerName: "Product", field: "title", colId: "title", minWidth: 210, flex: 1.1, filter: "agTextColumnFilter", cellRenderer: ProductCell },
     { headerName: "Channel", field: "channel", colId: "channel", width: 152, filter: "agTextColumnFilter", getQuickFilterText: (params) => `${params.data?.channel ?? ""} ${params.data?.agentClient ?? ""}`, cellRenderer: ChannelCell },
     { headerName: "Agent client", field: "agentClient", colId: "agentClient", hide: true, filter: "agTextColumnFilter", sortable: false },
-    { headerName: "Amount", field: "amountCents", colId: "amountCents", width: 124, filter: "agNumberColumnFilter", filterValueGetter: (params) => params.data ? params.data.amountCents / 100 : 0, valueFormatter: (params) => params.value === null || params.value === undefined ? "—" : usd(Number(params.value)), cellClass: "orders-amount-cell" },
+    { headerName: "Amount", field: "amountCents", colId: "amountCents", width: 156, minWidth: 144, filter: "agNumberColumnFilter", filterValueGetter: (params) => params.data ? params.data.amountCents / 100 : 0, valueFormatter: (params) => params.value === null || params.value === undefined ? "—" : usd(Number(params.value)), cellClass: "orders-amount-cell", cellRenderer: AmountCell },
     { headerName: "Discount", field: "discountPct", colId: "discountPct", width: 106, filter: "agNumberColumnFilter", valueFormatter: (params) => Number(params.value) > 0 ? `${Number(params.value).toFixed(1)}%` : "—", cellRenderer: DiscountCell },
-    { headerName: "Flow", field: "flow", colId: "flow", width: 119, filter: "agTextColumnFilter", valueFormatter: (params) => params.value === "agent_pass" ? "Agent Pass" : "PayPal link" },
+    { headerName: "Flow", field: "flow", colId: "flow", width: 119, filter: "agTextColumnFilter", valueFormatter: (params) => params.data?.id === "__totals__" ? "—" : params.value === "agent_pass" ? "Agent Pass" : "PayPal link" },
     { headerName: "Status", field: "status", colId: "status", width: 136, filter: "agTextColumnFilter", cellRenderer: StatusCell },
     { headerName: "Payout", field: "payoutStatus", colId: "payoutStatus", width: 116, filter: "agTextColumnFilter", cellRenderer: PayoutCell },
     { headerName: "Tracking", field: "tracking", colId: "tracking", minWidth: 175, width: 190, sortable: false, filter: false, cellDataType: false, cellRenderer: TrackingCell },
@@ -300,13 +370,13 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
   ], []);
 
   const totalsRow = useMemo<MerchantOrderRow>(() => ({
-    id: "__totals__", createdAt: "", updatedAt: "", title: `TOTALS · ${rows.length} orders`, thumbnailUrl: null,
-    qty: rows.reduce((total, row) => total + row.qty, 0), amountCents: rows.reduce((total, row) => total + row.amountCents, 0),
-    listPriceCents: 0, discountPct: 0, channel: "storefront", agentClient: "", flow: "approval_link", status: "", payoutStatus: null,
+    id: "__totals__", createdAt: "", updatedAt: "", title: `Paid · ${paidTotals.paidOrderCount} ${paidTotals.paidOrderCount === 1 ? "order" : "orders"}`, thumbnailUrl: null,
+    qty: paidTotals.paidOrderCount, amountCents: paidTotals.paidCents, refundedCents: paidTotals.refundedCents,
+    listPriceCents: 0, discountPct: 0, channel: "storefront", agentClient: "", flow: "approval_link", status: "", payoutStatus: null, isDemo: false,
     captureId: null, tracking: null, negotiationId: null, rounds: 0, shippingCity: null, shippingCountry: null,
-  }), [rows]);
+  }), [paidTotals]);
 
-  function onGridReady(event: GridReadyEvent<MerchantOrderRow>) { apiRef.current = event.api; event.api.setGridOption("quickFilterText", quickFilter); }
+  function onGridReady(event: GridReadyEvent<MerchantOrderRow>) { apiRef.current = event.api; event.api.setGridOption("quickFilterText", quickFilter); refreshVisibleTotals(); }
   function applyGridView(view: GridViewSpec) {
     const api = apiRef.current;
     if (!api) return;
@@ -315,7 +385,23 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
     api.applyColumnState({ state: model.columnState, defaultState: { sort: null } });
     setQuickFilter(model.quickFilterText);
     api.setGridOption("quickFilterText", model.quickFilterText);
+    setCopilotView(view);
+    refreshVisibleTotals();
+    pulseGrid();
     toast.success("Orders view updated.");
+  }
+
+  function clearCopilotView() {
+    const api = apiRef.current;
+    if (api) {
+      api.setFilterModel(null);
+      api.resetColumnState();
+      api.setGridOption("quickFilterText", "");
+    }
+    setQuickFilter("");
+    setCopilotView(null);
+    refreshVisibleTotals();
+    pulseGrid();
   }
 
   function openOrder(id: string | null | undefined) { if (id && id !== "__totals__") setSelectedOrderId(id); }
@@ -330,21 +416,28 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
       <label className="orders-search"><Search aria-hidden="true" size={16} /><span className="sr-only">Search all orders</span><input onChange={(event) => setQuickFilter(event.target.value)} placeholder="Search orders, products, agents…" value={quickFilter} /></label>
       <div className="orders-toolbar-actions"><span className="orders-live-indicator"><i aria-hidden="true" /> Live · 5 sec</span><Button onClick={() => apiRef.current?.exportDataAsCsv({ fileName: "agentshelf-orders.csv" })} size="sm" variant="outline"><Download aria-hidden="true" size={14} /> Export CSV</Button></div>
     </section>
-    <div className="orders-grid-shell">
+    {copilotView && <div aria-label="Copilot filters" className="orders-copilot-filter">
+      <span>Filtered by Copilot</span>
+      {gridViewLabels(copilotView).map((label) => <strong key={label}>{label}</strong>)}
+      <Button onClick={clearCopilotView} size="sm" variant="ghost">Clear</Button>
+    </div>}
+    <div className={`orders-grid-shell${highlightGrid ? " is-copilot-highlight" : ""}`}>
       <AgGridReact<MerchantOrderRow>
         animateRows
         columnDefs={columnDefs}
         defaultColDef={{ resizable: true, sortable: true, filter: true, suppressHeaderMenuButton: false, enableCellChangeFlash: true, tooltipValueGetter: (params) => typeof params.value === "string" ? params.value : undefined }}
         getRowId={(params) => params.data.id}
+        onFilterChanged={refreshVisibleTotals}
         onGridReady={onGridReady}
+        onModelUpdated={refreshVisibleTotals}
         onRowClicked={(event) => openOrder(event.data?.id)}
         pagination
         paginationPageSize={25}
         paginationPageSizeSelector={false}
         pinnedBottomRowData={[totalsRow]}
         rowData={rows}
-        rowHeight={66}
-        theme={themeQuartz.withParams({ accentColor: "#3b2ed0", backgroundColor: "#fffdfa", borderColor: "#e6e1d9", borderRadius: 12, chromeBackgroundColor: "#f4f1ec", fontFamily: "Inter, Arial, sans-serif", fontSize: 12, headerFontSize: 10, headerFontWeight: 650, headerHeight: 42, rowHeight: 66, selectedRowBackgroundColor: "#eeeafc", spacing: 5, wrapperBorderRadius: 14 })}
+        rowHeight={72}
+        theme={themeQuartz.withParams({ accentColor: "#3b2ed0", backgroundColor: "#fffdfa", borderColor: "#e6e1d9", borderRadius: 12, chromeBackgroundColor: "#f4f1ec", fontFamily: "Inter, Arial, sans-serif", fontSize: 12, headerFontSize: 10, headerFontWeight: 650, headerHeight: 42, rowHeight: 72, selectedRowBackgroundColor: "#eeeafc", spacing: 5, wrapperBorderRadius: 14 })}
       />
     </div>
     <p className="orders-grid-footnote">Select a row for the order history, fulfillment actions, and pricing context.</p>

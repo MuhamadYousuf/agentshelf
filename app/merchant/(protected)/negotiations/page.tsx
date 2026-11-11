@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -7,12 +8,17 @@ import { requireMerchant } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { negotiations, products } from "@/lib/db/schema";
 import { formatCents } from "@/lib/mcp/public";
+import { MerchantNegotiationsSkeleton } from "@/components/merchant/page-skeletons";
 
 function formatStatus(status: string): string {
   return status.replaceAll("_", " ");
 }
 
-export default async function MerchantNegotiationsPage() {
+export default function MerchantNegotiationsPage() {
+  return <Suspense fallback={<MerchantNegotiationsSkeleton />}><MerchantNegotiationsContent /></Suspense>;
+}
+
+async function MerchantNegotiationsContent() {
   const merchant = await requireMerchant();
   const rows = await getDb().select({
     id: negotiations.id,

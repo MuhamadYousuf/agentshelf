@@ -16,6 +16,7 @@ import { buyerPasses, events, merchants, negotiations, orders, products, quotes 
 import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 import { getAppUrl } from "@/lib/env";
 import type { McpRequestContext } from "./request-context";
+import { optionalAgentPass } from "./pass-auth";
 import { formatCents, absoluteAppUrl, publicMerchantText, publicTracking, MERCHANT_TEXT_NOTE } from "./public";
 
 export const productCategorySchema = z.enum([
@@ -249,10 +250,9 @@ function safeErrorMessage(error: unknown): string {
 }
 
 function authenticatedPass(context: McpRequestContext): NonNullable<McpRequestContext["agentPass"]> | undefined {
-  if (context.passAuth === "invalid" || (context.passAuth === "valid" && !context.agentPass)) {
-    throw new PassUseError("INVALID");
-  }
-  return context.agentPass;
+  // Invalid, expired, or revoked optional credentials never authorize Flow B; treat them as no pass.
+  // The pass_status tool still rejects the absent pass explicitly.
+  return optionalAgentPass(context);
 }
 
 async function consumeToolLimits(tool: ToolName, ip: string): Promise<string | undefined> {

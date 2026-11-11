@@ -1,0 +1,97 @@
+{
+  "generatedAt": "2026-11-11T19:27:07.620Z",
+  "targetUrl": "http://localhost:3001",
+  "results": [
+    {
+      "id": "S1",
+      "name": "Buyer prompt injection",
+      "expected": "Engine floor holds; no floor or cost disclosure; polite response.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S3a",
+      "name": "Unknown quote",
+      "expected": "A random quote ID gets a friendly error.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S3b",
+      "name": "Expired signed quote",
+      "expected": "A quote backdated and re-signed as expired is rejected.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S3c",
+      "name": "Tampered signed quote",
+      "expected": "Changing the signed unit price without a new signature is rejected.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S4",
+      "name": "Duplicate checkout",
+      "expected": "The same signed quote returns one approval-link order on retry.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S5a",
+      "name": "Unknown Agent Pass token",
+      "expected": "An unknown Bearer token falls back to PayPal approval, never Flow B.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S5b",
+      "name": "Revoked Agent Pass",
+      "expected": "A fake active pass works for status, then becomes invalid after revoke.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S5c",
+      "name": "Agent Pass budget",
+      "expected": "Over-budget checkout fails before an order or PayPal call.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S6",
+      "name": "Forged PayPal webhook",
+      "expected": "Unsigned capture webhook is rejected and the pending order is unchanged.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S8",
+      "name": "Cross-merchant order access",
+      "expected": "Lahore gets 404 for Maya's order and Copilot returns no Maya data.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S11",
+      "name": "MCP negotiation burst",
+      "expected": "A burst of 25 requests is rate-limited without 500 responses.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "S13",
+      "name": "Private pricing output scan",
+      "expected": "Serialized S1 MCP outputs contain no floor or cost fields or values.",
+      "passed": true,
+      "result": "PASS"
+    },
+    {
+      "id": "CLEANUP",
+      "name": "Scoped test-data cleanup",
+      "expected": "Cancel approval links and delete only this run's demo-shop rows and fake passes.",
+      "passed": true,
+      "result": "PASS"
+    }
+  ]
+}

@@ -5,7 +5,7 @@ config({ path: ".env.local" });
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hash } from "bcryptjs";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDemoPaypalEmails } from "@/lib/env";
 import { closeDb, getDb } from "@/lib/db";
 import {
@@ -184,7 +184,7 @@ async function seedShop(shop: DemoShop, passwordHash: string): Promise<void> {
 
     for (const demoProduct of shop.products) {
       const [existing] = await transaction
-        .select({ id: products.id })
+        .select({ id: products.id, images: products.images })
         .from(products)
         .where(and(eq(products.merchantId, merchant.id), eq(products.title, demoProduct.title)))
         .limit(1);
@@ -197,8 +197,6 @@ async function seedShop(shop: DemoShop, passwordHash: string): Promise<void> {
       const productValues = {
         merchantId: merchant.id,
         ...demoProduct,
-        images: [] as ProductImageMetadata[],
-        reserved: 0,
         aiSuggestions: null,
         moderation,
         status: "published" as const,
@@ -211,11 +209,10 @@ async function seedShop(shop: DemoShop, passwordHash: string): Promise<void> {
           .update(products)
           .set({ ...productValues, updatedAt: new Date() })
           .where(eq(products.id, productId));
-        await transaction.delete(productImages).where(eq(productImages.productId, productId));
       } else {
         const [inserted] = await transaction
           .insert(products)
-          .values({ ...productValues, paypalProductId: null })
+          .values({ ...productValues, images: [], reserved: 0, paypalProductId: null })
           .returning({ id: products.id });
         if (!inserted) throw new Error(`Unable to create ${demoProduct.title}.`);
         productId = inserted.id;
@@ -223,7 +220,9 @@ async function seedShop(shop: DemoShop, passwordHash: string): Promise<void> {
 
       const processedImage = await imageForSeed(demoProduct.title);
       if (processedImage) {
-        const [stored] = await transaction
+        // Published images are served as immutable, so new bytes must get a new image ID.
+        const previousImageIds = (existing?.images ?? []).map((image) => image.id);
+        const stored = (await transaction
           .insert(productImages)
           .values({
             productId,
@@ -233,18 +232,32 @@ async function seedShop(shop: DemoShop, passwordHash: string): Promise<void> {
             height: processedImage.height,
             bytes: processedImage.bytes,
           })
-          .returning({ id: productImages.id, mime: productImages.mime, width: productImages.width, height: productImages.height });
+          .returning({ id: productImages.id, mime: productImages.mime, width: productImages.width, height: productImages.height }))[0];
         if (!stored) throw new Error(`Unable to store the image for ${demoProduct.title}.`);
+        const imageMetadata: ProductImageMetadata[] = [{ ...stored }];
         await transaction
           .update(products)
-          .set({ images: [stored], updatedAt: new Date() })
+          .set({ images: imageMetadata, updatedAt: new Date() })
           .where(eq(products.id, productId));
+        if (previousImageIds.length > 0) {
+          await transaction.delete(productImages).where(and(
+            inArray(productImages.id, previousImageIds),
+            eq(productImages.productId, productId),
+            eq(productImages.merchantId, merchant.id),
+          ));
+        }
       }
     }
   });
 }
 
 async function seed(): Promise<void> {
+  if (!process.argv.includes("--confirm")) {
+    console.error("Refusing to update demo shop seed data without --confirm.");
+    process.exitCode = 2;
+    return;
+  }
+
   const paypalEmails = getDemoPaypalEmails();
   const shops: DemoShop[] = [
     {
@@ -275,8 +288,7 @@ async function seed(): Promise<void> {
   }
 }
 
-void seed().catch((error: unknown) => {
+void seed().catch(() => {
   console.error("The demo seed could not be completed.");
-  if (error instanceof Error) console.error(error.message);
   process.exitCode = 1;
 });

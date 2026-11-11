@@ -16,7 +16,11 @@ import { isPassOwner } from "@/lib/passes/owner";
 import { deletePaymentToken } from "@/lib/paypal/vault";
 import { revokeAgentPass } from "./actions";
 
-export const metadata: Metadata = { title: "Your Agent Pass" };
+export const metadata: Metadata = {
+  title: "Your Agent Pass",
+  description: "Review spending limits, budget progress, and activity for your Agent Pass.",
+  robots: { index: false, follow: false },
+};
 
 function money(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);

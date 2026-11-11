@@ -13,6 +13,7 @@ export type MerchantOrderRow = {
   thumbnailUrl: string | null;
   qty: number;
   amountCents: number;
+  refundedCents?: number;
   listPriceCents: number;
   discountPct: number;
   channel: "agent" | "storefront";
@@ -24,6 +25,7 @@ export type MerchantOrderRow = {
   tracking: OrderTracking | null;
   negotiationId: string | null;
   rounds: number;
+  isDemo: boolean;
   shippingCity: string | null;
   shippingCountry: string | null;
 };
@@ -47,6 +49,7 @@ export function makeMerchantOrderRow(input: {
   tracking: OrderTracking | null;
   negotiationId: string | null;
   rounds: number | null;
+  isDemo: boolean;
   shipping: { address?: { city?: string; countryCode?: string } } | null;
 }): MerchantOrderRow {
   const listTotal = input.listPriceCents * input.qty;
@@ -69,6 +72,7 @@ export function makeMerchantOrderRow(input: {
     tracking: input.tracking,
     negotiationId: input.negotiationId,
     rounds: input.rounds ?? 0,
+    isDemo: input.isDemo,
     shippingCity: input.shipping?.address?.city ?? null,
     shippingCountry: input.shipping?.address?.countryCode ?? null,
   };
@@ -95,6 +99,7 @@ export async function listMerchantOrders(
     tracking: orders.tracking,
     negotiationId: quotes.negotiationId,
     rounds: negotiations.round,
+    isDemo: orders.isDemo,
     shipping: orders.shipping,
   }).from(orders)
     .innerJoin(products, eq(orders.productId, products.id))

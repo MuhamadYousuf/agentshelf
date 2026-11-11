@@ -6,6 +6,8 @@ import { events, orders } from "@/lib/db/schema";
 import { captureOrder, getOrder, parsePayPalCapture, type PayPalOrderResponse } from "@/lib/paypal/orders";
 import { PayPalWebhookConfigurationError, verifyWebhook } from "@/lib/paypal/webhooks";
 import { getPaypalConfiguration } from "@/lib/env";
+import { getMcpClientIp } from "@/lib/mcp/request-context";
+import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 
 export const maxDuration = 60;
 
@@ -67,6 +69,24 @@ export async function POST(request: Request): Promise<Response> {
       warnedMissingWebhookId = true;
     }
     return NextResponse.json({ error: "Webhook verification is not configured." }, { status: 503 });
+  }
+
+  let rateLimit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    rateLimit = await consumeFixedWindowLimit({
+      key: `paypal:webhook:${getMcpClientIp(request)}`,
+      limit: 120,
+      windowMs: 60_000,
+    });
+  } catch {
+    return NextResponse.json({ error: "Webhook verification is temporarily unavailable." }, { status: 503 });
+  }
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.max(1, Math.ceil((rateLimit.resetsAt.getTime() - Date.now()) / 1_000));
+    return NextResponse.json({ error: "Too many webhook requests. Try again shortly." }, {
+      status: 429,
+      headers: { "Retry-After": String(retryAfter) },
+    });
   }
 
   await expireStaleReservations();

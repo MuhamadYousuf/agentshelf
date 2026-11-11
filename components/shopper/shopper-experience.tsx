@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -27,6 +27,10 @@ const examples = [
   "Embroidered bookmark under $20",
 ] as const;
 
+const subscribeHydration = () => () => {};
+const getClientHydration = () => true;
+const getServerHydration = () => false;
+
 const timelineSteps = [
   { key: "parsing", label: "Understand your request", icon: Sparkles },
   { key: "searching", label: "Search the shelf", icon: Search },
@@ -48,7 +52,7 @@ function eventErrorMessage(value: unknown): string | undefined {
   return typeof error === "string" ? error : undefined;
 }
 
-function buildPriceNodes(events: ShopperEvent[]): PriceNode[] {
+export function buildPriceNodes(events: ShopperEvent[]): PriceNode[] {
   const picked = [...events].reverse().find((event) => event.type === "picked");
   if (picked?.type !== "picked") return [];
   const nodes: PriceNode[] = [{ key: "list", label: "List price", cents: picked.product.price_cents, kind: "list" }];
@@ -56,18 +60,23 @@ function buildPriceNodes(events: ShopperEvent[]): PriceNode[] {
     if (event.type === "shop_message" && event.offer_cents !== null && event.action !== "declined") {
       nodes.push({
         key: `shop-${index}`,
-        label: event.action === "final" ? "Final offer" : event.action === "accept" ? "Accepted" : "Shop offer",
+        label: event.action === "final" ? "Final offer" : event.action === "accept" ? "Agreed" : "Shop offer",
         cents: event.offer_cents,
         kind: event.action === "accept" ? "agreed" : "shop",
       });
     }
     if (event.type === "buyer_message" && event.price_cents !== undefined) {
-      nodes.push({
-        key: `buyer-${index}`,
-        label: event.move === "accept" ? "Agreed" : "Your counter",
-        cents: event.price_cents,
-        kind: event.move === "accept" ? "agreed" : "counter",
-      });
+      const previous = nodes[nodes.length - 1];
+      if (event.move === "accept" && previous?.cents === event.price_cents) {
+        nodes[nodes.length - 1] = { ...previous, label: "Agreed", kind: "agreed" };
+      } else {
+        nodes.push({
+          key: `buyer-${index}`,
+          label: event.move === "accept" ? "Agreed" : "Your counter",
+          cents: event.price_cents,
+          kind: event.move === "accept" ? "agreed" : "counter",
+        });
+      }
     }
   }
   const last = nodes[nodes.length - 1];
@@ -90,12 +99,13 @@ function stepDescription(step: string): string {
   }
 }
 
-export function ShopperExperience() {
-  const [goal, setGoal] = useState("Find a handmade gift for my mom under $40");
-  const [budget, setBudget] = useState("40");
+export function ShopperExperience({ initialGoal, initialBudget }: { initialGoal?: string; initialBudget?: string } = {}) {
+  const [goal, setGoal] = useState(initialGoal ?? "Find a handmade gift for my mom under $40");
+  const [budget, setBudget] = useState(initialBudget ?? "40");
   const [passToken, setPassToken] = useState("");
   const [showPassToken, setShowPassToken] = useState(false);
   const [events, setEvents] = useState<ShopperEvent[]>([]);
+  const hydrated = useSyncExternalStore(subscribeHydration, getClientHydration, getServerHydration);
   const [running, setRunning] = useState(false);
   const [hasRun, setHasRun] = useState(false);
   const [formError, setFormError] = useState<string | undefined>();
@@ -298,7 +308,7 @@ export function ShopperExperience() {
               {formError && <motion.p className="shopper-form-error" initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><CircleAlert aria-hidden="true" size={15} />{formError}</motion.p>}
             </AnimatePresence>
           </div>
-          <button className="shopper-submit" disabled={running} type="submit">
+          <button className="shopper-submit" disabled={!hydrated || running} type="submit">
             {running ? <><LoaderCircle className="shopper-spinner" aria-hidden="true" size={17} /> Shopping…</> : <>Send my agent shopping <ArrowRight aria-hidden="true" size={17} /></>}
           </button>
         </div>
@@ -416,6 +426,7 @@ export function ShopperExperience() {
                   <div className="shopper-end-copy"><strong>Negotiation complete</strong><span>Your agreed price is {money(summary.paid_price_cents)}.</span>{summary.receipt_url && <a href={summary.receipt_url}>View receipt <ArrowUpRight aria-hidden="true" size={13} /></a>}</div>
                 </>
               )}
+              <p className="shopper-end-saved">You saved <strong>{money(summary.saved_cents)} <small>({summary.saved_percent}%)</small></strong></p>
             </motion.div>
           )}
           {inlineErrors.length > 0 && (

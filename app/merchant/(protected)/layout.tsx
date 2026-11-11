@@ -4,8 +4,6 @@ import { MerchantMobileMenu, MerchantSidebar } from "@/components/merchant/sideb
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireMerchant } from "@/lib/auth/session";
 
-export const instant = false;
-
 function MerchantLoading() {
   return (
     <main aria-busy="true" className="merchant-content">

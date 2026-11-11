@@ -1,4 +1,5 @@
 import { desc, eq, sql } from "drizzle-orm";
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Plus, Sparkles } from "lucide-react";
@@ -11,10 +12,15 @@ import { getDb } from "@/lib/db";
 import { products, orders } from "@/lib/db/schema";
 import { formatCategory } from "@/lib/commerce/categories";
 import { getPendingPayoutSummary, getSalesInsights } from "@/lib/merchant/analytics";
+import { MerchantOverviewSkeleton } from "@/components/merchant/page-skeletons";
 
 const currency = (cents: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
-export default async function MerchantOverviewPage() {
+export default function MerchantOverviewPage() {
+  return <Suspense fallback={<MerchantOverviewSkeleton />}><MerchantOverviewContent /></Suspense>;
+}
+
+async function MerchantOverviewContent() {
   const merchant = await requireMerchant();
   const now = new Date();
   const sevenDays = { from: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1_000), to: now };
