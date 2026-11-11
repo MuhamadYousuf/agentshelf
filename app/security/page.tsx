@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import latestAttackRunJson from "../../public/security/attacks-latest.json";
+import { PublicFooter } from "@/components/site/public-footer";
 
 export const metadata: Metadata = {
   title: "Security and attack results",
@@ -35,7 +36,8 @@ function timestamp(value: string): string {
 }
 
 export default function SecurityPage() {
-  return <main className="security-page">
+  return <>
+  <main className="security-page">
     <header className="security-header"><Logo /><Link href="/"><ArrowLeft size={14} /> Back to AgentShelf</Link></header>
     <section className="security-hero">
       <span className="security-eyebrow"><ShieldCheck size={15} /> Safety you can inspect</span>
@@ -56,6 +58,7 @@ export default function SecurityPage() {
       </tbody></table></div>}
       <div className="security-run-cta"><p>Run the suite yourself against a local or deployed instance.</p><code>pnpm attacks -- --confirm</code></div>
     </section>
-    <footer className="security-footer">AgentShelf · PayPal sandbox demo</footer>
-  </main>;
+  </main>
+  <PublicFooter />
+  </>;
 }

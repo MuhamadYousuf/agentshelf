@@ -13,16 +13,28 @@ import { formatCategory } from "@/lib/commerce/categories";
 import { getDb } from "@/lib/db";
 import { getAppUrl } from "@/lib/env";
 import { merchants, products } from "@/lib/db/schema";
+import { PublicFooter } from "@/components/site/public-footer";
+import { z } from "zod";
 
 type ProductPageProps = {
   params: Promise<{ slug: string; productId: string }>;
   searchParams: Promise<{ checkout?: string }>;
 };
 
-export const metadata: Metadata = {
-  title: "Handmade product",
-  description: "See a handmade product's details, availability, and PayPal checkout options.",
-};
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+  const { slug, productId } = await params;
+  if (!z.string().uuid().safeParse(productId).success) {
+    return { title: "Handmade product", description: "See handmade product details, availability, and PayPal checkout options." };
+  }
+  const [row] = await getDb().select({ title: products.title, description: products.description, shopName: merchants.name })
+    .from(products).innerJoin(merchants, eq(products.merchantId, merchants.id))
+    .where(and(eq(products.id, productId), eq(merchants.slug, slug), eq(products.status, "published"))).limit(1);
+  if (!row) return { title: "Handmade product", description: "See handmade product details, availability, and PayPal checkout options." };
+  return {
+    title: `${row.title} from ${row.shopName}`,
+    description: `${row.description.slice(0, 145)} Shop from ${row.shopName} with PayPal checkout.`,
+  };
+}
 
 function price(cents: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -30,6 +42,7 @@ function price(cents: number): string {
 
 async function StoreProductContent({ params, searchParams }: ProductPageProps) {
   const [{ slug, productId }, query] = await Promise.all([params, searchParams]);
+  if (!z.string().uuid().safeParse(productId).success) notFound();
   const [row] = await getDb().select({
     merchantId: merchants.id,
     shopName: merchants.name,
@@ -110,6 +123,7 @@ async function StoreProductContent({ params, searchParams }: ProductPageProps) {
           <p className="shop-agent-note"><Bot aria-hidden="true" size={16} /> <span>Agents can negotiate this item via MCP: <code>{endpoint}</code></span></p>
         </section>
       </main>
+      <PublicFooter />
     </>
   );
 }

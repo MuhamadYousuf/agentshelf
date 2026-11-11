@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { CheckCircle2, ShieldCheck, Sparkles } from "lucide-react";
 
 export function HeroPreview() {
@@ -13,9 +14,15 @@ export function HeroPreview() {
         </div>
 
         <div className="demo-window-content">
-          <div className="demo-product-art" aria-label="Product photo placeholder">
-            <span className="demo-product-number">01</span>
-            <span className="demo-product-art-caption">Product photo</span>
+          <div className="demo-product-art demo-product-art-photo">
+            <Image
+              alt="Hand-glazed speckled stoneware mug"
+              fill
+              priority
+              sizes="(max-width: 768px) 80vw, 240px"
+              src="/seed/hand-glazed-speckled-mug.jpg"
+              style={{ objectFit: "cover" }}
+            />
           </div>
 
           <div className="demo-details">

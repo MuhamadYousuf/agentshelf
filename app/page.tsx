@@ -12,6 +12,13 @@ import { HeroPreview } from "@/components/landing/hero-preview";
 import { ConnectAgent } from "@/components/landing/connect-agent";
 import { Button } from "@/components/ui/button";
 import { getAppUrl } from "@/lib/env";
+import { PublicFooter } from "@/components/site/public-footer";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "AgentShelf — shops ready for AI agents",
+  description: "PayPal-powered agent commerce for independent shops: publish handmade products, negotiate within shop policy, and check out safely.",
+};
 
 const makerFeatures = [
   "Turn product photos into listing drafts you can review.",
@@ -67,15 +74,14 @@ export default function HomePage() {
                   <div className="hero-ctas">
                     <Button asChild className="hero-cta-primary">
                       <Link href="/shopper">
-                        Try the Shopper Agent <ArrowRight aria-hidden="true" />
+                        Watch an agent shop <ArrowRight aria-hidden="true" />
                       </Link>
                     </Button>
-                    <Button
-                      asChild
-                      className="hero-cta-secondary"
-                      variant="outline"
-                    >
-                      <Link href="/merchant/signup">Open my shop</Link>
+                    <Button asChild className="hero-cta-secondary" variant="outline">
+                      <Link href="/tour">Judge tour</Link>
+                    </Button>
+                    <Button asChild className="hero-cta-secondary" variant="outline">
+                      <Link href="/merchant/login">Merchant sign in</Link>
                     </Button>
                   </div>
                   <div className="hero-footnote">
@@ -87,6 +93,10 @@ export default function HomePage() {
               </div>
             </HeroMotion>
           </div>
+        </section>
+
+        <section aria-label="AgentShelf technology" className="landing-stack-strip">
+          PayPal Orders v2 · Vault v3 · Payouts · Catalog · Webhooks · Agent Toolkit · MCP · Gemini
         </section>
 
         <section aria-labelledby="how-title" className="section-block how-section" id="how-it-works">
@@ -232,19 +242,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <footer className="site-footer">
-        <div className="page-wrap footer-inner">
-          <div className="footer-caption">
-            <Logo />
-            <span>Made for the next kind of commerce.</span>
-          </div>
-          <nav aria-label="Footer navigation" className="footer-links">
-            <Link href="/shopper">Agent shopping</Link>
-            <Link href="/pass">Agent Pass</Link>
-            <Link href="/merchant/login">Merchant sign in</Link>
-          </nav>
-        </div>
-      </footer>
+      <PublicFooter />
     </>
   );
 }

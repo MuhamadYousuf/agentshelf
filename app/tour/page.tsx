@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/logo";
 import { ConnectAgent } from "@/components/landing/connect-agent";
 import { Button } from "@/components/ui/button";
 import { getAppUrl } from "@/lib/env";
+import { PublicFooter } from "@/components/site/public-footer";
 
 export const metadata: Metadata = {
   title: "Judge tour",
@@ -21,7 +22,8 @@ const steps = [
 
 export default function TourPage() {
   const endpoint = `${getAppUrl().replace(/\/+$/, "")}/api/mcp`;
-  return <main className="tour-shell">
+  return <>
+  <main className="tour-shell">
     <header className="tour-header"><Logo /><Link href="/">Back to AgentShelf <ArrowRight size={14} /></Link></header>
     <section className="tour-hero">
       <span className="tour-eyebrow"><CircleHelp size={15} /> For judges · about 3 minutes</span>
@@ -44,6 +46,7 @@ export default function TourPage() {
         </article>;
       })}
     </section>
-    <footer className="tour-footer"><span>AgentShelf · PayPal sandbox demo</span><Link href="/">Return to AgentShelf</Link></footer>
-  </main>;
+  </main>
+  <PublicFooter />
+  </>;
 }

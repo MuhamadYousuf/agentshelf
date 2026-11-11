@@ -13,15 +13,22 @@ import { getAppUrl } from "@/lib/env";
 import { formatCategory } from "@/lib/commerce/categories";
 import { getDb } from "@/lib/db";
 import { merchants, products } from "@/lib/db/schema";
+import { PublicFooter } from "@/components/site/public-footer";
 
 type StorePageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export const metadata: Metadata = {
-  title: "Maker storefront",
-  description: "Browse published handmade products from an independent AgentShelf shop.",
-};
+export async function generateMetadata({ params }: StorePageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const [merchant] = await getDb().select({ name: merchants.name })
+    .from(merchants).where(eq(merchants.slug, slug)).limit(1);
+  const shopName = merchant?.name ?? "Independent shop";
+  return {
+    title: `${shopName} storefront`,
+    description: `Browse published handmade products from ${shopName}, with clear prices and availability.`,
+  };
+}
 
 function StorefrontFallback() {
   return (
@@ -134,6 +141,7 @@ async function StorefrontContent({ params }: StorePageProps) {
           See how an agent shops <ArrowRight aria-hidden="true" size={16} />
         </Link>
       </main>
+      <PublicFooter />
     </>
   );
 }

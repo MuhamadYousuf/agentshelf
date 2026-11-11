@@ -3,16 +3,12 @@ import { and, desc, eq } from "drizzle-orm";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LazyNegotiationsGrid } from "@/components/merchant/lazy-negotiations-grid";
+import { MerchantNegotiationsSkeleton } from "@/components/merchant/page-skeletons";
 import { requireMerchant } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { negotiations, products } from "@/lib/db/schema";
-import { formatCents } from "@/lib/mcp/public";
-import { MerchantNegotiationsSkeleton } from "@/components/merchant/page-skeletons";
-
-function formatStatus(status: string): string {
-  return status.replaceAll("_", " ");
-}
+import { mapNegotiationsForGrid } from "@/lib/merchant/negotiations-grid";
 
 export default function MerchantNegotiationsPage() {
   return <Suspense fallback={<MerchantNegotiationsSkeleton />}><MerchantNegotiationsContent /></Suspense>;
@@ -25,9 +21,12 @@ async function MerchantNegotiationsContent() {
     clientName: negotiations.clientName,
     round: negotiations.round,
     status: negotiations.status,
+    state: negotiations.state,
     lastOfferCents: negotiations.lastOfferCents,
     updatedAt: negotiations.updatedAt,
+    messages: negotiations.messages,
     productTitle: products.title,
+    listPriceCents: products.listPriceCents,
   }).from(negotiations)
     .innerJoin(products, eq(negotiations.productId, products.id))
     .where(and(eq(negotiations.merchantId, merchant.id), eq(products.merchantId, merchant.id)))
@@ -51,34 +50,7 @@ async function MerchantNegotiationsContent() {
           <Button asChild variant="outline"><Link href="/merchant/products">View products</Link></Button>
         </section>
       ) : (
-        <div className="products-table-shell negotiations-table-shell">
-          <Table className="negotiations-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>Agent client</TableHead>
-                <TableHead>Rounds</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last offer</TableHead>
-                <TableHead>Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="negotiation-product-cell">
-                    <Link href={`/merchant/negotiations/${row.id}`}>{row.productTitle}</Link>
-                  </TableCell>
-                  <TableCell><span className="negotiation-client-name">{row.clientName}</span></TableCell>
-                  <TableCell className="negotiation-number">{row.round} / 6</TableCell>
-                  <TableCell><Badge className={`negotiation-status-badge ${row.status}`} variant="outline">{formatStatus(row.status)}</Badge></TableCell>
-                  <TableCell className="negotiation-number">{row.lastOfferCents === null ? "—" : formatCents(row.lastOfferCents)}</TableCell>
-                  <TableCell>{row.updatedAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <LazyNegotiationsGrid rows={mapNegotiationsForGrid(rows)} />
       )}
     </>
   );

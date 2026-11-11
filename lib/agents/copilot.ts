@@ -325,6 +325,41 @@ Use add_tracking only with a completed merchant-owned order and valid carrier de
 refund_order only prepares a needs_confirmation request. Never say a refund occurred until the merchant confirms in the UI. Flow A orders cannot be refunded from AgentShelf.
 Keep replies short: use one to four concise sentences and at most a simple bullet list. Avoid headings and tables.`;
 
+const FLOW_NAMES = { approval_link: "PayPal link", agent_pass: "Agent Pass" } as const;
+const SORT_NAMES = {
+  createdAt: "time",
+  title: "product",
+  channel: "channel",
+  amountCents: "amount",
+  flow: "flow",
+  status: "status",
+  agentClient: "agent",
+} as const;
+
+function dollars(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+/** Deterministic summary of a grid view, used when the model filtered the grid but failed to reply. */
+export function describeGridView(view: GridViewSpec): string {
+  const filters = view.filters ?? {};
+  const parts: string[] = [];
+  if (filters.agent_client) parts.push(`from ${filters.agent_client}`);
+  else if (filters.channel) parts.push(filters.channel === "agent" ? "from AI agents" : "from the storefront");
+  if (filters.flow) parts.push(`paid by ${FLOW_NAMES[filters.flow]}`);
+  if (filters.status) parts.push(`with status ${filters.status.replace("_", " ")}`);
+  const { min, max } = filters.amount ?? {};
+  if (min !== undefined && max !== undefined) parts.push(`between ${dollars(min)} and ${dollars(max)}`);
+  else if (min !== undefined) parts.push(`of ${dollars(min)} or more`);
+  else if (max !== undefined) parts.push(`of ${dollars(max)} or less`);
+  if (filters.date?.from || filters.date?.to) parts.push(`dated ${filters.date.from ?? "…"} to ${filters.date.to ?? "today"}`);
+  if (view.quick_filter) parts.push(`matching "${sanitizeListingText(view.quick_filter, 60)}"`);
+  const sort = view.sort ? `, sorted by ${SORT_NAMES[view.sort.columnId]} (${view.sort.direction === "asc" ? "ascending" : "descending"})` : "";
+  return parts.length > 0
+    ? `Done. The grid now shows orders ${parts.join(", ")}${sort}. Use Clear above the grid to reset it.`
+    : `Done. The grid view is updated${sort}. Use Clear above the grid to reset it.`;
+}
+
 function sanitizeMerchantMessage(message: string): string {
   return sanitizeListingText(message, 1_000);
 }
@@ -364,8 +399,12 @@ export async function runCopilot(input: { merchantId: string; message: string })
   }
 
   void modelError;
+  const onlyGridViews = effects.length > 0 && effects.every((effect) => effect.type === "grid_view");
+  const lastView = [...effects].reverse().find((effect) => effect.type === "grid_view");
   return {
-    text: effects.length > 0
+    text: onlyGridViews && lastView?.type === "grid_view"
+      ? describeGridView(lastView.view)
+      : effects.length > 0
       ? "The requested action finished, but I couldn't prepare a summary. Review the order or grid to confirm the result."
       : "Copilot couldn't complete that request just now. Try again in a moment.",
     effects,

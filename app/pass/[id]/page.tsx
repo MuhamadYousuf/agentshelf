@@ -15,6 +15,7 @@ import { buyerPasses, events, orders, products } from "@/lib/db/schema";
 import { isPassOwner } from "@/lib/passes/owner";
 import { deletePaymentToken } from "@/lib/paypal/vault";
 import { revokeAgentPass } from "./actions";
+import { PublicFooter } from "@/components/site/public-footer";
 
 export const metadata: Metadata = {
   title: "Your Agent Pass",
@@ -33,9 +34,9 @@ type AgentPassPageProps = {
 
 export default function AgentPassPage(props: AgentPassPageProps) {
   return (
-    <Suspense fallback={<PassDetailFallback />}>
+    <><Suspense fallback={<PassDetailFallback />}>
       <AgentPassContent params={props.params} searchParams={props.searchParams} />
-    </Suspense>
+    </Suspense><PublicFooter /></>
   );
 }
 

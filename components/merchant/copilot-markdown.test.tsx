@@ -12,7 +12,7 @@ describe("CopilotMarkdown", () => {
   it("renders simple bullet lists and line breaks", () => {
     const markup = renderToStaticMarkup(<CopilotMarkdown text={"Orders:\n- One\n- **Two**\nNext line"} />);
     expect(markup).toContain("<ul><li>One</li><li><strong>Two</strong></li></ul>");
-    expect(markup).toContain("<br/>");
+    expect(markup).toContain("</ul><p><span>Next line</span></p>");
   });
 
   it("renders HTML-like model output as escaped text", () => {

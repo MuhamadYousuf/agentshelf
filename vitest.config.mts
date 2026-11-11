@@ -6,8 +6,8 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["**/*.test.ts"],
-    exclude: ["node_modules", ".next"],
+    include: ["**/*.test.ts", "**/*.test.tsx"],
+    exclude: ["node_modules", "**/node_modules/**", ".next", "video/**"],
   },
   resolve: {
     alias: {

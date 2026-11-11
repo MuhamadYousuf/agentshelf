@@ -1,24 +1,14 @@
 import { desc, eq } from "drizzle-orm";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
-import { ProductTableRow } from "@/components/merchant/product-table-row";
-import { Badge } from "@/components/ui/badge";
+import { LazyProductsGrid } from "@/components/merchant/lazy-products-grid";
 import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireMerchant } from "@/lib/auth/session";
 import { getDb } from "@/lib/db";
 import { products } from "@/lib/db/schema";
+import { mapProductsForGrid } from "@/lib/merchant/products-grid";
 
 type ProductsPageProps = { searchParams: Promise<{ status?: string }> };
-
-function formatPrice(cents: number): string {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
-}
-
-function formatUpdated(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
-}
 
 export default async function MerchantProductsPage({ searchParams }: ProductsPageProps) {
   const merchant = await requireMerchant();
@@ -27,8 +17,11 @@ export default async function MerchantProductsPage({ searchParams }: ProductsPag
     .select({
       id: products.id,
       title: products.title,
+      category: products.category,
       listPriceCents: products.listPriceCents,
+      floorPriceCents: products.floorPriceCents,
       stock: products.stock,
+      reserved: products.reserved,
       status: products.status,
       images: products.images,
       paypalProductId: products.paypalProductId,
@@ -76,51 +69,7 @@ export default async function MerchantProductsPage({ searchParams }: ProductsPag
       </nav>
 
       {visibleProducts.length > 0 ? (
-        <div className="products-table-shell">
-          <Table className="products-table">
-            <TableHeader>
-              <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>List price</TableHead>
-                <TableHead>Stock</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>PayPal Catalog</TableHead>
-                <TableHead>Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visibleProducts.map((product) => {
-                const image = product.images[0];
-                const pending = product.status === "published" && !product.paypalProductId;
-                return (
-                  <ProductTableRow href={`/merchant/products/${product.id}`} key={product.id} label={`Review ${product.title || "untitled draft"}`}>
-                    <TableCell className="product-title-cell">
-                      <span className="product-table-item">
-                        <span className="product-table-thumb">
-                          {image && <Image alt="" fill sizes="42px" src={`/api/images/${image.id}`} unoptimized />}
-                        </span>
-                        <span>{product.title || "Untitled draft"}</span>
-                      </span>
-                    </TableCell>
-                    <TableCell>{formatPrice(product.listPriceCents)}</TableCell>
-                    <TableCell>{product.stock}</TableCell>
-                    <TableCell><Badge className={`product-state-badge ${product.status}`} variant="outline">{product.status}</Badge></TableCell>
-                    <TableCell>
-                      {product.paypalProductId ? (
-                        <span className="paypal-state synced">Synced</span>
-                      ) : pending ? (
-                        <span className="paypal-state pending">Pending</span>
-                      ) : (
-                        <span className="paypal-state">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{formatUpdated(product.updatedAt)}</TableCell>
-                  </ProductTableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <LazyProductsGrid initialRows={mapProductsForGrid(visibleProducts)} />
       ) : (
         <section className="products-empty">
           <h2>{allProducts.length === 0 ? "No products yet" : "Nothing in this view"}</h2>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { ShopperExperience } from "@/components/shopper/shopper-experience";
+import { PublicFooter } from "@/components/site/public-footer";
 
 export const metadata: Metadata = {
   title: "Shop with your agent",
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
 type ShopperPageProps = { searchParams: Promise<{ goal?: string; budget?: string }> };
 
 export default function ShopperPage({ searchParams }: ShopperPageProps) {
-  return <Suspense fallback={<main className="shopper-page-loading">Preparing your shopping run…</main>}><ShopperContent searchParams={searchParams} /></Suspense>;
+  return <><Suspense fallback={<main className="shopper-page-loading">Preparing your shopping run…</main>}><ShopperContent searchParams={searchParams} /></Suspense><PublicFooter /></>;
 }
 
 async function ShopperContent({ searchParams }: ShopperPageProps) {

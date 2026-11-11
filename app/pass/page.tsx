@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { MandateSummary } from "@/components/pass/mandate-summary";
 import { formatCategory } from "@/lib/commerce/categories";
 import { createAgentPass } from "./actions";
+import { PublicFooter } from "@/components/site/public-footer";
 
 export const metadata: Metadata = {
   title: "Agent Pass",
@@ -31,9 +32,9 @@ type PassPageProps = { searchParams: Promise<{ error?: string; cancelled?: strin
 
 export default function PassPage({ searchParams }: PassPageProps) {
   return (
-    <Suspense fallback={<PassPageFallback />}>
+    <><Suspense fallback={<PassPageFallback />}>
       <PassPageContent searchParams={searchParams} />
-    </Suspense>
+    </Suspense><PublicFooter /></>
   );
 }
 

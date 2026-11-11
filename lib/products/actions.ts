@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/auth/session";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/security/product-input";
 import { consumeFixedWindowLimit } from "@/lib/security/ratelimit";
 import { sanitizeListingText } from "@/lib/security/sanitize";
+import { validateProductGridEdit } from "@/lib/merchant/products-grid";
 
 export type ProductActionResult = {
   ok: boolean;
@@ -30,6 +31,11 @@ export type ProductActionResult = {
 
 const idSchema = z.uuid();
 const categorySchema = z.enum(listingCategories);
+const productGridEditSchema = z.discriminatedUnion("field", [
+  z.object({ productId: idSchema, field: z.literal("listPriceCents"), value: draftProductFieldsSchema.shape.listPriceCents }),
+  z.object({ productId: idSchema, field: z.literal("floorPriceCents"), value: draftProductFieldsSchema.shape.floorPriceCents }),
+  z.object({ productId: idSchema, field: z.literal("stock"), value: draftProductFieldsSchema.shape.stock }),
+]);
 
 function readText(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -151,6 +157,69 @@ export async function saveProductAction(formData: FormData): Promise<ProductActi
       ? "Saved as a draft because the policy check needs your attention."
       : product.status === "published" ? "Changes saved." : "Draft saved.",
   };
+}
+
+export async function editProductGridCellAction(input: unknown): Promise<ProductActionResult> {
+  const session = await merchantSession();
+  if (!session) return { ok: false, message: "Sign in to edit this listing." };
+  const parsed = productGridEditSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Use a whole-cent price and a whole-number stock count." };
+  const edit = parsed.data;
+  const product = await ownedProduct(edit.productId, session.merchantId);
+  if (!product) return { ok: false, message: "Listing not found." };
+
+  const validation = validateProductGridEdit({
+    current: {
+      listPriceCents: product.listPriceCents,
+      floorPriceCents: product.floorPriceCents,
+      stock: product.stock,
+      reserved: product.reserved,
+    },
+    field: edit.field,
+    value: edit.value,
+  });
+  if (!validation.ok) return { ok: false, message: validation.message };
+
+  let limit: Awaited<ReturnType<typeof consumeFixedWindowLimit>>;
+  try {
+    limit = await consumeFixedWindowLimit({
+      key: `product-grid-edit:${session.merchantId}`,
+      limit: 20,
+      windowMs: 60_000,
+    });
+  } catch {
+    return { ok: false, message: "Edits are temporarily unavailable. Try again shortly." };
+  }
+  if (!limit.allowed) return { ok: false, message: "You have reached 20 quick edits this minute. Try again shortly." };
+
+  const guards = [
+    eq(products.id, product.id),
+    eq(products.merchantId, session.merchantId),
+  ];
+  let update: { listPriceCents?: number; floorPriceCents?: number; stock?: number };
+  switch (edit.field) {
+    case "listPriceCents":
+      update = { listPriceCents: edit.value };
+      guards.push(sql`${products.floorPriceCents} <= ${edit.value}`);
+      break;
+    case "floorPriceCents":
+      update = { floorPriceCents: edit.value };
+      guards.push(sql`${products.listPriceCents} >= ${edit.value}`);
+      break;
+    case "stock":
+      update = { stock: edit.value };
+      guards.push(sql`${products.reserved} <= ${edit.value}`);
+      break;
+  }
+  const [updated] = await getDb().update(products)
+    .set({ ...update, updatedAt: new Date() })
+    .where(and(...guards))
+    .returning({ id: products.id });
+  if (!updated) {
+    return { ok: false, message: "The listing changed during this edit. Refresh and try again." };
+  }
+  revalidateProductViews(product.id);
+  return { ok: true, message: "Product updated." };
 }
 
 async function syncPayPalCatalog(productId: string, merchantId: string): Promise<ProductActionResult> {

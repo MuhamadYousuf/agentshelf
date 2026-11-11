@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getDb } from "@/lib/db";
 import { merchants, orders, products } from "@/lib/db/schema";
+import { PublicFooter } from "@/components/site/public-footer";
 
 export const metadata: Metadata = {
   title: "Order receipt",
@@ -94,6 +95,7 @@ async function ReceiptContent({ params }: ReceiptProps) {
         )}
         <Button asChild className="receipt-back-button" variant="outline"><Link href={`/s/${order.shopSlug}`}>Return to shop</Link></Button>
       </main>
+      <PublicFooter />
     </>
   );
 }

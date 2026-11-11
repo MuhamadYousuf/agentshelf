@@ -29,7 +29,7 @@ function utilityCurrency(cents: number): string {
   return formatCents(cents);
 }
 
-function PriceTrace({ trace, round }: {
+function PriceTrace({ trace, round, buyerMove }: {
   trace: {
     belief: number;
     state: "cooperate" | "recovery";
@@ -38,6 +38,7 @@ function PriceTrace({ trace, round }: {
     reason: string;
   };
   round: number;
+  buyerMove: string;
 }) {
   const utilities = trace.candidates.map((candidate) => candidate.eu);
   const low = Math.min(...utilities);
@@ -49,9 +50,13 @@ function PriceTrace({ trace, round }: {
       <div className="negotiation-trace-round-head">
         <h3 id={`trace-round-${round}`}>Round {round}</h3>
         <Badge className={`negotiation-state-badge ${trace.state}`} variant="outline">
-          {trace.state === "cooperate" ? "Cooperate" : "Recovery"}
+          {trace.state === "cooperate" ? "COOPERATE" : "DEFECT_RECOVERY"}
         </Badge>
       </div>
+      <dl className="trace-round-context">
+        <div><dt>Buyer move</dt><dd>{buyerMove || "Not recorded"}</dd></div>
+        <div><dt>Clamp to [floor, list]</dt><dd>Not recorded</dd></div>
+      </dl>
       <div className="belief-meter">
         <div className="belief-meter-label">
           <span>Price-sensitive buyer belief</span>
@@ -61,16 +66,17 @@ function PriceTrace({ trace, round }: {
           <span style={{ width: `${Math.min(100, Math.max(0, trace.belief * 100))}%` }} />
         </div>
       </div>
-      <div aria-label={`Candidate offer prices and expected utility for round ${round}`} className="trace-chart" role="img">
+      <div aria-label={`Candidate offer prices and expected utility for round ${round}`} className="trace-chart">
         {trace.candidates.map((candidate) => {
           const height = spread <= 0 ? 62 : 18 + ((candidate.eu - low) / spread) * 74;
           const chosen = candidate.priceCents === trace.chosen;
           return (
             <div className={`trace-chart-column${chosen ? " chosen" : ""}`} key={`${round}-${candidate.priceCents}`}>
-              <span className="trace-chart-utility">{utilityCurrency(candidate.eu)}</span>
+              <span aria-label={`Expected utility ${utilityCurrency(candidate.eu)}`} className="trace-chart-utility" title={`Expected utility ${utilityCurrency(candidate.eu)}`}>{utilityCurrency(candidate.eu)}</span>
               <span className="trace-chart-bar-track"><span style={{ height: `${height}%` }} /></span>
               <span className="trace-chart-price">{formatCents(candidate.priceCents)}</span>
               <span className="trace-chart-probability">{Math.round(candidate.pAccept * 100)}% accept</span>
+              {chosen && <span className="trace-chart-chosen">Chosen</span>}
             </div>
           );
         })}
@@ -120,6 +126,7 @@ export default async function MerchantNegotiationDetailPage({
     .limit(1);
   const qty = latestQuote[0]?.qty ?? 1;
   const roundCount = Math.min(PRICING_PARAMS.maximumRounds, Math.max(row.round, row.trace.length));
+  const buyerMessages = row.messages.filter((message) => message.role === "buyer");
 
   return (
     <>
@@ -186,9 +193,15 @@ export default async function MerchantNegotiationDetailPage({
             <p className="negotiation-trace-empty">No pricing decisions have been recorded yet.</p>
           ) : (
             <div className="negotiation-trace-list">
-              {row.trace.map((trace, index) => (
-                <PriceTrace key={`trace-${index}`} round={index + 1} trace={trace} />
-              ))}
+              {row.trace.map((trace, index) => {
+                const buyerMessage = buyerMessages[index - 1];
+                const buyerMove = index === 0
+                  ? "Not recorded (opening offer)"
+                  : buyerMessage?.offerCents !== undefined
+                    ? `Counter ${formatCents(buyerMessage.offerCents)} · ${buyerMessage.text}`
+                    : buyerMessage?.text ?? "Not recorded";
+                return <PriceTrace key={`trace-${index}`} buyerMove={buyerMove} round={index + 1} trace={trace} />;
+              })}
             </div>
           )}
           <p className="negotiation-trace-footnote">Offers respond to buyer behavior and expected acceptance while staying within the pricing policy you set.</p>

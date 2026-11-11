@@ -421,7 +421,13 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
       {gridViewLabels(copilotView).map((label) => <strong key={label}>{label}</strong>)}
       <Button onClick={clearCopilotView} size="sm" variant="ghost">Clear</Button>
     </div>}
-    <div className={`orders-grid-shell${highlightGrid ? " is-copilot-highlight" : ""}`}>
+    {rows.length === 0 ? (
+      <section className="orders-empty-state" aria-labelledby="orders-empty-title">
+        <h2 id="orders-empty-title">No orders yet</h2>
+        <p>Completed storefront and agent purchases will appear here, with payment and delivery details.</p>
+        <Link href="/merchant/products">Review your published products <ArrowUpRight aria-hidden="true" size={14} /></Link>
+      </section>
+    ) : <div className={`orders-grid-shell${highlightGrid ? " is-copilot-highlight" : ""}`}>
       <AgGridReact<MerchantOrderRow>
         animateRows
         columnDefs={columnDefs}
@@ -439,8 +445,8 @@ export function OrdersGrid({ initialRows, initialCursor }: { initialRows: Mercha
         rowHeight={72}
         theme={themeQuartz.withParams({ accentColor: "#3b2ed0", backgroundColor: "#fffdfa", borderColor: "#e6e1d9", borderRadius: 12, chromeBackgroundColor: "#f4f1ec", fontFamily: "Inter, Arial, sans-serif", fontSize: 12, headerFontSize: 10, headerFontWeight: 650, headerHeight: 42, rowHeight: 72, selectedRowBackgroundColor: "#eeeafc", spacing: 5, wrapperBorderRadius: 14 })}
       />
-    </div>
-    <p className="orders-grid-footnote">Select a row for the order history, fulfillment actions, and pricing context.</p>
+    </div>}
+    {rows.length > 0 && <p className="orders-grid-footnote">Select a row for the order history, fulfillment actions, and pricing context.</p>}
 
     <Sheet onOpenChange={(open) => { if (!open) setSelectedOrderId(null); }} open={selectedOrderId !== null}>
       <SheetContent className="order-detail-sheet w-[min(96vw,620px)] sm:max-w-[620px]" side="right">

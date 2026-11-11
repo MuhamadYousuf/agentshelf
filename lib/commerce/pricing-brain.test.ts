@@ -91,6 +91,29 @@ describe("paper pricing model", () => {
     expect(secondBreach.trace.reason).toContain("breach_streak≥2→FINAL_OFFER");
   });
 
+  it("matches the documented $28 mug sequence through the $23.80 floor offer", () => {
+    const opening = priceNextMove({
+      listCents: 2_800,
+      floorCents: 2_380,
+      costCents: 1_540,
+      state: start,
+      buyerMove: { type: "open" },
+    });
+    const response = priceNextMove({
+      listCents: 2_800,
+      floorCents: 2_380,
+      costCents: 1_540,
+      state: opening.nextState,
+      buyerMove: { type: "counter", priceCents: 2_200 },
+    });
+
+    expect(opening.priceCents).toBe(2_716);
+    expect(response.priceCents).toBe(2_380);
+    expect(response.action).toBe("offer");
+    expect(response.nextState.state).toBe("recovery");
+    expect(response.nextState.breachStreak).toBe(1);
+  });
+
   it("counts an explicit walk-away as breach and lowers the next offer", () => {
     const opening = priceNextMove({
       listCents: 10_000,
@@ -212,5 +235,81 @@ describe("paper pricing model", () => {
     expect(priceNextMove(input)).toEqual(priceNextMove(input));
     expect(priceNextMove(input).action).toBe("final");
     expect(priceNextMove(input).nextState.round).toBe(6);
+  });
+
+  it.each([
+    {
+      label: "second tolerance breach",
+      state: { ...start, round: 2, lastOfferCents: 9_000, breachStreak: 1 },
+      buyerMove: { type: "counter" as const, priceCents: 7_000 },
+    },
+    {
+      label: "second walk-away",
+      state: { ...start, round: 2, lastOfferCents: 9_000, breachStreak: 1 },
+      buyerMove: { type: "walk_away" as const },
+    },
+    {
+      label: "an already reached breach threshold",
+      state: { ...start, round: 2, lastOfferCents: 9_000, breachStreak: 2 },
+      buyerMove: { type: "open" as const },
+    },
+  ])("returns a final action for $label", ({ state, buyerMove }) => {
+    const result = priceNextMove({ listCents: 10_000, floorCents: 6_000, state, buyerMove });
+    expect(result.nextState.breachStreak).toBeGreaterThanOrEqual(2);
+    expect(result.action).toBe("final");
+  });
+
+  it("preserves price and state invariants across 2,500 seeded buyer-move sequences", () => {
+    let seed = 0x6d2b79f5;
+    const random = () => {
+      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+      return seed / 0x1_0000_0000;
+    };
+
+    const sequenceCount = 2_500;
+    for (let sequence = 0; sequence < sequenceCount; sequence += 1) {
+      const listCents = 100 + Math.floor(random() * 500_000);
+      const floorCents = 1 + Math.floor(random() * listCents);
+      let state: PricingState = {
+        belief: random(),
+        state: random() < 0.5 ? "cooperate" : "recovery",
+        round: 0,
+        lastOfferCents: null,
+        lastBuyerOfferCents: null,
+        breachStreak: 0,
+        churnStreak: 0,
+      };
+
+      for (let turn = 0; turn < 10; turn += 1) {
+        const moveKind = Math.floor(random() * 5);
+        const buyerMove = moveKind === 0
+          ? { type: "open" as const }
+          : moveKind === 1
+            ? { type: "question" as const }
+            : moveKind === 2
+              ? { type: "walk_away" as const }
+              : moveKind === 3
+                ? { type: "accept" as const }
+                : { type: "counter" as const, priceCents: Math.floor(random() * (listCents * 1.2 + 1)) };
+        const input = { listCents, floorCents, state, buyerMove };
+        const decision = priceNextMove(input);
+
+        expect(decision.priceCents).toBeGreaterThanOrEqual(floorCents);
+        expect(decision.priceCents).toBeLessThanOrEqual(listCents);
+        expect(decision.nextState.belief).toBeGreaterThanOrEqual(0);
+        expect(decision.nextState.belief).toBeLessThanOrEqual(1);
+        expect(priceNextMove(input)).toEqual(decision);
+
+        if (state.lastOfferCents !== null && (decision.action === "offer" || decision.action === "final")) {
+          expect(decision.priceCents).toBeLessThanOrEqual(state.lastOfferCents);
+        }
+        if (decision.nextState.breachStreak >= PRICING_PARAMS.finalBreachStreak) {
+          expect(decision.action).toBe("final");
+        }
+
+        if (decision.action === "accept" || decision.action === "final") break;
+        state = decision.nextState;
+      }
+    }
   });
 });

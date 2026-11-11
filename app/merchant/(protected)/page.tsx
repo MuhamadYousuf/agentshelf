@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Plus, Sparkles } from "lucide-react";
-import { AnalyticsCharts } from "@/components/merchant/analytics-charts";
+import { LazyAnalyticsCharts } from "@/components/merchant/lazy-analytics-charts";
 import { CopilotPanel } from "@/components/merchant/copilot-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,7 @@ async function MerchantOverviewContent() {
       </section>
 
       {totalOrders === 0 && <div className="merchant-first-order-note"><Sparkles aria-hidden="true" size={16} /><span>No orders yet. Your first completed storefront or agent sale will bring the charts to life.</span><Link href="/merchant/orders">View orders <ArrowRight aria-hidden="true" size={14} /></Link></div>}
-      <AnalyticsCharts insights={fortnight} />
+      <LazyAnalyticsCharts insights={fortnight} />
 
       <section aria-label="Product statistics" className="merchant-catalog-overview">
         <div className="merchant-catalog-topline">

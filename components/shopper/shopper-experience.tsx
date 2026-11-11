@@ -58,6 +58,12 @@ export function buildPriceNodes(events: ShopperEvent[]): PriceNode[] {
   const nodes: PriceNode[] = [{ key: "list", label: "List price", cents: picked.product.price_cents, kind: "list" }];
   for (const [index, event] of events.entries()) {
     if (event.type === "shop_message" && event.offer_cents !== null && event.action !== "declined") {
+      const previous = nodes[nodes.length - 1];
+      // A shop confirmation at the price just agreed is the same step, not a new one.
+      if (previous && previous.kind !== "list" && previous.cents === event.offer_cents) {
+        if (event.action === "accept") nodes[nodes.length - 1] = { ...previous, label: "Agreed", kind: "agreed" };
+        continue;
+      }
       nodes.push({
         key: `shop-${index}`,
         label: event.action === "final" ? "Final offer" : event.action === "accept" ? "Agreed" : "Shop offer",
@@ -268,7 +274,7 @@ export function ShopperExperience({ initialGoal, initialBudget }: { initialGoal?
           maxLength={300}
           minLength={3}
           onChange={(event) => setGoal(event.target.value)}
-          placeholder="A handmade gift for my mom under $40"
+          placeholder="A handmade ceramic gift under $40"
           rows={2}
           value={goal}
         />
@@ -327,6 +333,7 @@ export function ShopperExperience({ initialGoal, initialBudget }: { initialGoal?
 
       <section className="shopper-ladder-shell" aria-label="Negotiated price ladder">
         <div className="shopper-ladder-caption"><span>Price path</span>{summary && <strong>You saved {money(summary.saved_cents)} <small>({summary.saved_percent}%)</small></strong>}</div>
+        <p className="shopper-shipping-note">Price includes shipping.</p>
         {priceNodes.length > 0 ? (
           <div className="shopper-price-ladder">
             {priceNodes.map((node, index) => (

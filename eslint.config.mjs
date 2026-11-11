@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The architect's separate recording project is not part of the app lint scope.
+    "video/**",
   ]),
 ]);
 
