@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "mcp:smoke": "node --conditions=react-server --import tsx scripts/mcp-smoke.ts",
+    "shopper:smoke": "node --conditions=react-server --import tsx scripts/shopper-smoke.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "node --conditions=react-server --import tsx lib/db/seed.ts",
     "db:studio": "drizzle-kit studio"

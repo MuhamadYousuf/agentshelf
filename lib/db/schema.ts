@@ -396,3 +396,16 @@ export const mcpClients = pgTable(
   },
   (table) => [index("mcp_clients_expires_at_idx").on(table.expiresAt)],
 );
+
+// One active hosted Shopper Agent run per hashed client IP. Expiry releases a lock if a
+// serverless invocation is terminated before its cleanup runs.
+export const shopperRunLocks = pgTable(
+  "shopper_run_locks",
+  {
+    clientKey: text("client_key").primaryKey(),
+    runId: uuid("run_id").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [index("shopper_run_locks_expires_at_idx").on(table.expiresAt)],
+);

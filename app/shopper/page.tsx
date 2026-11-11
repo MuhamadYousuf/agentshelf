@@ -1,16 +1,11 @@
-import { Bot } from "lucide-react";
-import { ComingSoon } from "@/components/site/coming-soon";
+import type { Metadata } from "next";
+import { ShopperExperience } from "@/components/shopper/shopper-experience";
 
-export const metadata = { title: "Agent shopping" };
+export const metadata: Metadata = {
+  title: "Shop with your agent",
+  description: "Give your Shopper Agent a budget, watch it negotiate, and choose how to pay.",
+};
 
 export default function ShopperPage() {
-  return (
-    <ComingSoon
-      action="Open a merchant shop"
-      description="Explore the buying experience for an AI assistant: product discovery, merchant-set rules, clear quotes, and payment with buyer permission."
-      href="/merchant/signup"
-      icon={Bot}
-      title="An agent can shop with clear boundaries."
-    />
-  );
+  return <ShopperExperience />;
 }

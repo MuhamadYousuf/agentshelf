@@ -21,6 +21,38 @@ export type McpRequestContext = {
   };
 };
 
+export type ResolvedAgentPass = NonNullable<McpRequestContext["agentPass"]>;
+
+export async function resolveAgentPass(token: string): Promise<ResolvedAgentPass | undefined> {
+  if (!isAgentPassToken(token)) return undefined;
+  try {
+    const tokenHash = sha256(token);
+    const [pass] = await getDb().select({
+      id: buyerPasses.id,
+      vaultId: buyerPasses.vaultId,
+      mandate: buyerPasses.mandate,
+      spentCents: buyerPasses.spentCents,
+      pendingCents: buyerPasses.pendingCents,
+    }).from(buyerPasses).where(and(
+      eq(buyerPasses.tokenHash, tokenHash),
+      eq(buyerPasses.status, "active"),
+      isNull(buyerPasses.revokedAt),
+    )).limit(1);
+    if (pass?.vaultId && new Date(pass.mandate.expiresAt).getTime() > Date.now()) {
+      return {
+        id: pass.id,
+        vaultId: pass.vaultId,
+        mandate: pass.mandate,
+        spentCents: pass.spentCents,
+        pendingCents: pass.pendingCents,
+      };
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 export function getMcpClientIp(request: Request | undefined): string {
   const forwarded = request?.headers.get("x-forwarded-for")?.split(",", 1)[0]?.trim();
   return forwarded || "local";
@@ -62,32 +94,11 @@ export async function resolveMcpRequestContext(request?: Request): Promise<McpRe
   if (authorization !== null) {
     const match = authorization.match(/^Bearer\s+(.+)$/i);
     const token = match?.[1]?.trim();
-    if (token && isAgentPassToken(token)) {
-      try {
-        const tokenHash = sha256(token);
-        const [pass] = await getDb().select({
-          id: buyerPasses.id,
-          vaultId: buyerPasses.vaultId,
-          mandate: buyerPasses.mandate,
-          spentCents: buyerPasses.spentCents,
-          pendingCents: buyerPasses.pendingCents,
-        }).from(buyerPasses).where(and(
-          eq(buyerPasses.tokenHash, tokenHash),
-          eq(buyerPasses.status, "active"),
-          isNull(buyerPasses.revokedAt),
-        )).limit(1);
-        if (pass?.vaultId && new Date(pass.mandate.expiresAt).getTime() > Date.now()) {
-          passAuth = "valid";
-          agentPass = {
-            id: pass.id,
-            vaultId: pass.vaultId,
-            mandate: pass.mandate,
-            spentCents: pass.spentCents,
-            pendingCents: pass.pendingCents,
-          };
-        }
-      } catch {
-        passAuth = "invalid";
+    if (token) {
+      const resolved = await resolveAgentPass(token);
+      if (resolved) {
+        passAuth = "valid";
+        agentPass = resolved;
       }
     }
   }

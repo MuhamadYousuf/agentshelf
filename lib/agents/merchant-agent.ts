@@ -48,7 +48,7 @@ type AgentAttempt<T> = () => Promise<T>;
 
 // Gemini 3.x "thinking" models spend output tokens on reasoning first; with small caps the visible
 // text gets truncated. Short negotiation turns need no reasoning, so keep thinking minimal.
-const FAST_PROVIDER_OPTIONS = { google: { thinkingConfig: { thinkingLevel: "minimal" as const } } };
+export const FAST_PROVIDER_OPTIONS = { google: { thinkingConfig: { thinkingLevel: "minimal" as const } } };
 
 function removeExactText(value: string, exactText?: string): string {
   if (!exactText) return value;

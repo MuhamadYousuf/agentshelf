@@ -65,8 +65,8 @@ export default function HomePage() {
                   </p>
                   <div className="hero-ctas">
                     <Button asChild className="hero-cta-primary">
-                      <Link href="/merchant/signup">
-                        Open my shop <ArrowRight aria-hidden="true" />
+                      <Link href="/shopper">
+                        Try the Shopper Agent <ArrowRight aria-hidden="true" />
                       </Link>
                     </Button>
                     <Button
@@ -74,7 +74,7 @@ export default function HomePage() {
                       className="hero-cta-secondary"
                       variant="outline"
                     >
-                      <Link href="/shopper">Watch an agent shop</Link>
+                      <Link href="/merchant/signup">Open my shop</Link>
                     </Button>
                   </div>
                   <div className="hero-footnote">

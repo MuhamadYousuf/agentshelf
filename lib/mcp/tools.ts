@@ -316,7 +316,7 @@ type SearchRow = {
   updatedAt: Date;
 };
 
-async function searchProducts(input: z.infer<typeof searchProductsInputSchema>) {
+export async function searchProducts(input: z.infer<typeof searchProductsInputSchema>) {
   const query = input.query.trim();
   const pattern = `%${query}%`;
   const matches = or(
@@ -382,7 +382,7 @@ async function searchProducts(input: z.infer<typeof searchProductsInputSchema>) 
   };
 }
 
-async function getProduct(productId: string) {
+export async function getProduct(productId: string) {
   const [row] = await getDb().select({
     id: products.id,
     title: products.title,
@@ -433,7 +433,7 @@ async function getProduct(productId: string) {
   };
 }
 
-async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, context: McpRequestContext) {
+export async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, context: McpRequestContext) {
   const agentPass = authenticatedPass(context);
   const [row] = await getDb().select({
     id: products.id,
@@ -547,7 +547,7 @@ async function requestOffer(input: z.infer<typeof requestOfferInputSchema>, cont
   };
 }
 
-async function negotiate(input: z.infer<typeof negotiateInputSchema>, context: McpRequestContext) {
+export async function negotiate(input: z.infer<typeof negotiateInputSchema>, context: McpRequestContext) {
   const agentPass = authenticatedPass(context);
   const result = await negotiateWithShopkeeper({
     negotiationId: input.negotiation_id,
@@ -562,7 +562,7 @@ async function negotiate(input: z.infer<typeof negotiateInputSchema>, context: M
   };
 }
 
-async function checkoutQuote(input: z.infer<typeof checkoutInputSchema>, context: McpRequestContext) {
+export async function checkoutQuote(input: z.infer<typeof checkoutInputSchema>, context: McpRequestContext) {
   const agentPass = authenticatedPass(context);
   const [quote] = await getDb().select({ totalCents: quotes.totalCents }).from(quotes)
     .where(eq(quotes.id, input.quote_id)).limit(1);
@@ -591,7 +591,7 @@ async function checkoutQuote(input: z.infer<typeof checkoutInputSchema>, context
   };
 }
 
-async function passStatus(context: McpRequestContext) {
+export async function passStatus(context: McpRequestContext) {
   const pass = authenticatedPass(context);
   if (!pass) throw new PassUseError("INVALID");
   const remaining = remainingPassBudget(pass.mandate.totalBudgetCents, pass.spentCents, pass.pendingCents);
