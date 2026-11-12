@@ -1,6 +1,6 @@
 # AgentShelf: make any small shop sellable to AI agents, paid safely with PayPal.
 
-[Live demo](https://agentshelf-jade.vercel.app) · [Judge tour](https://agentshelf-jade.vercel.app/tour) · [Security results](https://agentshelf-jade.vercel.app/security) · Video: `VIDEO_URL_TBD`
+[Live demo](https://agentshelf-jade.vercel.app) · [Judge tour](https://agentshelf-jade.vercel.app/tour) · [Security results](https://agentshelf-jade.vercel.app/security) · [Video demo](https://youtu.be/FxQiD0S3b30)
 
 ## The problem
 
