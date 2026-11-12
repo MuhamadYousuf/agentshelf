@@ -86,7 +86,7 @@ PayPal sandbox verification found that Flow A tracking and refunds are refused b
 
 ## Pricing brain: the team's research
 
-The pricing model maps to *Bayesian, Utility-Maximizing Tit-for-Tat Repeated-Game Pricing* (Shakeel, Dadabhoy, Siddiqui, Soomar, 2026).
+The pricing model maps to *Bayesian, Utility-Maximizing Tit-for-Tat Repeated-Game Pricing* (Yousuf, Zain, Huzaifa, Umer, 2026).
 
 - Updates the probability that a buyer is price-sensitive from observed negotiation moves.
 - Uses the `COOPERATE` and `DEFECT_RECOVERY` states described by the paper's Algorithms 2 and 3.
@@ -269,7 +269,7 @@ Muhammad Yousuf · Ahsan Ahmed Siddiqui · Huzaifa Soomar · Shamoeel · Ibrahee
 
 ### Research
 
-Bayesian, Utility-Maximizing Tit-for-Tat Repeated-Game Pricing — Shakeel, Dadabhoy, Siddiqui, and Soomar (2026).
+Bayesian, Utility-Maximizing Tit-for-Tat Repeated-Game Pricing — Yousuf, Zain, Huzaifa and Umer (2026).
 
 ### Product photography
 

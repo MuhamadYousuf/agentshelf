@@ -1,6 +1,6 @@
 # Pricing model
 
-AgentShelf maps its negotiation engine to *Bayesian, Utility-Maximizing Tit-for-Tat Repeated-Game Pricing* by Shakeel, Dadabhoy, Siddiqui, and Soomar (2026). The amount is deterministic for the same inputs. Language models classify buyer messages and write replies; they do not choose or adjust prices.
+AgentShelf maps its negotiation engine to *Bayesian, Utility-Maximizing Tit-for-Tat Repeated-Game Pricing* by Yousuf, Zain, Huzaifa and Umer (2026). The amount is deterministic for the same inputs. Language models classify buyer messages and write replies; they do not choose or adjust prices.
 
 ## Buyer model (Algorithm 2)
 

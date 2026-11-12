@@ -43,3 +43,12 @@ yarn-error.log*
 
 .vercel
 .env*
+
+# Internal tooling, experiments and the video production pipeline (kept locally, not part of the app)
+AGENTS.md
+CLAUDE.md
+.impeccable/
+PRODUCT.md
+DESIGN.md
+spikes/
+video/
