@@ -146,7 +146,7 @@ const BLUR_SECRETS_JS = `
  * Server must run with APP_URL=localhost (server.ps1 -Mode local) so the PayPal return lands here.
  */
 async function passflow() {
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless: false, channel: process.env.PW_CHANNEL ?? "msedge" });
   const context = await browser.newContext({ viewport: VIEW, deviceScaleFactor: 1, recordVideo: { dir: ".rec", size: VIDEO } });
   await context.addInitScript(CURSOR_JS);
   await context.addInitScript(BLUR_SECRETS_JS);

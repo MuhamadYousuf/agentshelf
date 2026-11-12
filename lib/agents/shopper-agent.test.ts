@@ -361,6 +361,28 @@ describe("runShopper", () => {
     expect(serialized).not.toContain("floorCents");
   });
 
+  it("reports a completed pass payment even when checkout itself outlasts the run deadline", async () => {
+    const test = fixture({ checkoutStatus: "COMPLETED", approveUrl: null, paidWith: "Agent Pass" });
+    let now = 10_000;
+    const slowCheckout = test.dependencies.tools.checkoutQuote;
+    const dependencies: ShopperDependencies = {
+      ...test.dependencies,
+      clock: { now: () => now },
+      tools: {
+        ...test.dependencies.tools,
+        checkoutQuote: async (...args: Parameters<typeof slowCheckout>) => {
+          const result = await slowCheckout(...args);
+          now += 120_000; // PayPal capture + payout finished after the 55 s run budget.
+          return result;
+        },
+      },
+    };
+    const events = await collectEvents({ goal: "Find a ceramic mug under $30", budgetCents: 3000, passToken, ip: "198.51.100.9" }, dependencies);
+    const summary = events.find((event) => event.type === "summary");
+    expect(events.some((event) => event.type === "error")).toBe(false);
+    expect(summary?.type === "summary" ? summary.flow : undefined).toBe("agent_pass");
+  });
+
   it("runs the no-pass approval-link path", async () => {
     const test = fixture();
     const events = await collectEvents({ goal: "Find a ceramic mug under $30", budgetCents: 3000, ip: "198.51.100.4" }, test.dependencies);

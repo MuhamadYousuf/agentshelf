@@ -678,7 +678,8 @@ export async function* runShopper(
     yield emit({ type: "status", step: "paying", label: "Preparing secure checkout" });
     ensureTime();
     const checkout = await dependencies.tools.checkoutQuote({ quote_id: quoteId }, negotiationContext);
-    ensureTime();
+    // No deadline check after checkout: once PayPal has answered, the buyer must see the real outcome
+    // (a slow capture + payout must never be reported as a timeout when money has moved).
     if (checkout.data.total_cents > effectiveBudgetCents) {
       yield emit({ type: "error", message: "The final quote is above your budget, so I stopped before checkout." });
       return;
